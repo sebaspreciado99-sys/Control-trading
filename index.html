@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📈 TRADING 📉</title>
+
+  <!-- Manifest PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0c10">
+  <link rel="icon" type="image/png" href="icon-192.png">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="header-glow">
+      <h1>📈 TRADING 📉</h1>
+    </div>
+  </header>
+
+  <!-- HOME: crear par y ver lista -->
+  <section id="home">
+    <div class="card-glass premium">
+      <div class="input-group">
+        <p class="label-input glow">🎯 Activo Financiero</p>
+        <input id="inputPar" list="misPares" placeholder="Ej: BTCUSDT, EURUSD...">
+        <datalist id="misPares"></datalist>
+      </div>
+      
+      <div class="input-group">
+        <p class="label-input glow">🎨 Etiqueta de Color</p>
+        <div id="coloresRapidos"></div>
+        <input type="color" id="colorPar" value="#f0b90b" class="color-picker">
+      </div>
+      
+      <button onclick="guardarPar()" class="btn-main premium">
+        <span>➕</span> Iniciar Registro
+      </button>
+    </div>
+
+    <div id="listaPares"></div>
+  </section>
+
+  <!-- FORMULARIO DE OPERACIÓN -->
+  <section id="operaciones" class="oculto">
+    <h2 id="tituloPar" class="titulo-premium"></h2>
+    <div class="card-glass premium">
+        <div id="coloresRapidosEditar" class="color-grid"></div>
+        <input type="color" id="colorAuto" class="color-picker">
+        
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">📅 Fecha</p>
+              <input type="date" id="fecha">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">⏰ Hora</p>
+              <input type="time" id="hora">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">📈 Tipo</p>
+              <select id="tipo">
+                <option>BUY</option>
+                <option>SELL</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">🔥 Gatillo</p>
+              <select id="gatillo">
+                <option>G3V</option>
+                <option>ENVOLVENTE</option>
+                <option>PINBAR</option>
+              </select>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">🛑 SL Pips</p>
+              <input type="number" placeholder="SL Pips" id="sl" step="0.01" min="0">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">🎯 TP Pips</p>
+              <input type="number" placeholder="TP Pips" id="tp" step="0.01" min="0">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">RATIO</p>
+              <input placeholder="RATIO" id="ratio" readonly class="input-readonly premium">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">MAX RATIO</p>
+              <input placeholder="MAX RATIO" id="maxRatio" step="0.01">
+            </div>
+        </div>
+        
+        <div class="input-group">
+          <p class="label-input glow">🏆 RESULTADO</p>
+          <input placeholder="WIN / LOSS / BE" id="resultado">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">⏱️ DURACIÓN</p>
+          <input placeholder="Ej: 1D 2H" id="duracion">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">🔗 LINK DIARIO</p>
+          <input type="url" placeholder="URL de captura diaria" id="diario">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">🔗 LINK HORARIO</p>
+          <input type="url" placeholder="URL de captura H1, M15..." id="horario">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">📊 PORCENTAJE %</p>
+          <input placeholder="Ej: 0.5, 1, 2..." id="porcentaje">
+        </div>
+        
+        <div class="grid-2 r-grid">
+            <div class="input-group">
+              <p class="label-input glow">📉 R NEG</p>
+              <input placeholder="R NEG" id="rNegativo" class="input-danger">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">📈 R POS</p>
+              <input placeholder="R POS" id="rPositivo" class="input-success">
+            </div>
+        </div>
+        
+        <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
+        <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
+    </div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section id="historial" class="oculto">
+    <h2 class="titulo-premium">📁 HISTORIAL</h2>
+    
+    <div class="card-glass premium filter-panel">
+        <input 
+          type="text" 
+          id="filtroNombre" 
+          placeholder="🔍 Buscar por nombre..." 
+          oninput="abrirHistorial()" 
+          class="input-search">
+        <input type="date" id="filtroFecha" onchange="abrirHistorial()">
+        <button onclick="limpiarFiltros()" class="btn-ghost">✨ Limpiar</button>
+    </div>
+
+    <div id="resumenGlobal" class="resumen-premium"></div>
+    <button onclick="eliminarSeleccionados()" class="btn-danger premium">🗑 Borrar Seleccionados</button>
+    <div id="historialContenido"></div>
+    <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
+  </section>
+
+  <!-- DETALLE -->
+  <section id="detalle" class="oculto">
+    <h2 id="detalleTitulo" class="titulo-premium"></h2>
+    <div id="detalleContenido"></div>
+    <button onclick="volverHistorial()" class="btn-secondary premium">⬅ Volver</button>
+  </section>
+
+  <!-- Sesión actual -->
+  <div id="sesionActual"></div>
+
+  <!-- Botón flotante historial -->
+  <button id="btnHistorial" onclick="abrirHistorial()" class="fab-premium">📁</button>
+
+  <script src="app.js"></script>
+</body>
+</html>
