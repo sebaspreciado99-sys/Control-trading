@@ -1,12 +1,12 @@
 const CACHE_NAME = "trading-journal-v1";
 const URLS_TO_CACHE = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
+  "/Control-trading/",
+  "/Control-trading/index.html",
+  "/Control-trading/styles.css",
+  "/Control-trading/app.js",
+  "/Control-trading/manifest.json",
+  "/Control-trading/icon-192.png",
+  "/Control-trading/icon-512.png"
 ];
 
 self.addEventListener("install", event => {
