@@ -4,6 +4,7 @@
 
   "start_url": "/Control-trading/",
   "scope": "/Control-trading/",
+  "id": "/Control-trading/",
 
   "display": "standalone",
   "orientation": "portrait",
