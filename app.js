@@ -30,13 +30,18 @@ function normalizarDuracion() {
 
   if (v === "") return;
 
+  // Espacios múltiples -> uno
   v = v.replace(/s+/g, " ");
 
+  // Solo número -> añadir H
   if (/^d+$/.test(v)) {
     v = `${v}H`;
   }
 
+  // "1D2H" -> "1D 2H"
   v = v.replace(/(d+)D(d+)H/, "$1D $2H");
+
+  // DIAS / HORAS -> D / H
   v = v.replace(/DIAS?/g, "D").replace(/HORAS?/g, "H");
 
   dur.value = v;
