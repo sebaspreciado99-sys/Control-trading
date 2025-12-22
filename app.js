@@ -1,4 +1,4 @@
-// URL para Google Sheets (reemplaza con tu URL /exec)
+// URL para Google Sheets
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbyssb4Iwu5rfKpKDwx6gYAPyPCIgygtKAyjzWp3OlLfWRM9gHGwiMgXv9HqBTDUHacs/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -48,8 +48,8 @@ function guardarCambios() {
 
   const campos = [
     "fecha","hora","tipo","gatillo","sl","tp","ratio","maxRatio",
-    "resultado","duracion","diario","horario","porcentaje",
-    "rNegativo","rPositivo"
+    "resultado","duracion","diario","horario","cumplePlan","observaciones",
+    "porcentaje","rNegativo","rPositivo"
   ];
 
   campos.forEach(id => {
@@ -88,8 +88,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const camposAutoSave = [
     "fecha","hora","tipo","gatillo","sl","tp","maxRatio",
-    "resultado","duracion","diario","horario","porcentaje",
-    "rNegativo","rPositivo","colorAuto"
+    "resultado","duracion","diario","horario","cumplePlan","observaciones",
+    "porcentaje","rNegativo","rPositivo","colorAuto"
   ];
 
   camposAutoSave.forEach(id => {
@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (id === "duracion") normalizarDuracion();
       guardarCambios();
     });
-    if (["text","number","url","date","time"].includes(el.type)) {
+    if (["text","number","url","date","time","textarea"].includes(el.type)) {
       el.addEventListener("input", () => {
         if (id === "duracion") normalizarDuracion();
         guardarCambios();
@@ -177,7 +177,9 @@ function guardarPar() {
     datos: {
       fecha: ahora.toISOString().split("T")[0],
       hora: ahora.getHours().toString().padStart(2,"0") + ":" +
-            ahora.getMinutes().toString().padStart(2,"0")
+            ahora.getMinutes().toString().padStart(2,"0"),
+      cumplePlan: "",
+      observaciones: ""
     }
   };
 
@@ -254,8 +256,8 @@ function abrirForm(i) {
 
   const campos = [
     "fecha","hora","tipo","gatillo","sl","tp","ratio","maxRatio",
-    "resultado","duracion","diario","horario","porcentaje",
-    "rNegativo","rPositivo"
+    "resultado","duracion","diario","horario","cumplePlan","observaciones",
+    "porcentaje","rNegativo","rPositivo"
   ];
 
   campos.forEach(id => {
@@ -306,11 +308,11 @@ async function archivarPar() {
   save();
 
   try {
-    // Preparar datos para enviar a Google Sheets SIN el campo "color"
+    // Preparar datos para enviar a Google Sheets
     const tradeData = {
+      par: trades[currentIdx].nombre || '',
       fecha: trades[currentIdx].datos.fecha || '',
       hora: trades[currentIdx].datos.hora || '',
-      par: trades[currentIdx].nombre || '',
       tipo: trades[currentIdx].datos.tipo || '',
       gatillo: trades[currentIdx].datos.gatillo || '',
       sl: trades[currentIdx].datos.sl || '',
@@ -321,19 +323,20 @@ async function archivarPar() {
       duracion: trades[currentIdx].datos.duracion || '',
       diario: trades[currentIdx].datos.diario || '',
       horario: trades[currentIdx].datos.horario || '',
+      cumplePlan: trades[currentIdx].datos.cumplePlan || '',
+      observaciones: trades[currentIdx].datos.observaciones || '',
       porcentaje: trades[currentIdx].datos.porcentaje || '',
       rNegativo: trades[currentIdx].datos.rNegativo || '',
       rPositivo: trades[currentIdx].datos.rPositivo || ''
-      // NOTA: Se eliminó el campo "color" aquí
     };
 
-    // Enviar a Google Sheets usando parámetros URL (más compatible)
+    // Enviar a Google Sheets usando parámetros URL
     const params = new URLSearchParams();
     Object.keys(tradeData).forEach(key => {
       params.append(key, tradeData[key]);
     });
 
-    // Enviar la solicitud con parámetros en la URL
+    // Enviar la solicitud
     await fetch(`${URL_SHEETS}?${params}`, {
       method: 'POST',
       mode: 'no-cors'
@@ -343,7 +346,6 @@ async function archivarPar() {
     
   } catch (error) {
     console.error('Error al enviar a Google Sheets:', error);
-    // Continuar aunque falle para no perder el trade
   }
 
   alert("Trade archivado correctamente");
@@ -444,17 +446,22 @@ function verDetalle(i) {
     <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
   </div>`;
 
-  for (const key in t.datos) {
-    if (key === "archivedAt") continue;
-    let val = t.datos[key];
+  const camposMostrar = [
+    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
+    "resultado", "duracion", "diario", "horario", "cumplePlan", "observaciones",
+    "porcentaje", "rNegativo", "rPositivo"
+  ];
+
+  camposMostrar.forEach(key => {
+    let val = t.datos[key] || '---';
     if (key.includes("diario") || key.includes("horario")) {
-      val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
+      val = val && val !== '---' ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
     }
     html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
       <span style="color:var(--subtext)">${key.toUpperCase()}</span>
-      <span>${val || "---"}</span>
+      <span>${val}</span>
     </div>`;
-  }
+  });
 
   html += `
     <button onclick="eliminarUno(${t.id})" class="btn-danger premium" style="width:100%; margin-top:18px;">
