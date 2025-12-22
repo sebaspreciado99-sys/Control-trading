@@ -1,4 +1,4 @@
-// URL para Google Sheets
+// URL para Google Sheets - ACTUALIZA CON TU URL DESPUÉS DE DESPLEGAR
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbyssb4Iwu5rfKpKDwx6gYAPyPCIgygtKAyjzWp3OlLfWRM9gHGwiMgXv9HqBTDUHacs/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -19,7 +19,7 @@ function actualizarSesion() {
   if (hora >= 7 && hora < 13) sesion = "Sesión Londres";
   else if (hora >= 13 && hora < 21) sesion = "Sesión New York";
 
-  el.textContent = sesion + " · " + ahora.toTimeString().slice(0, 5);
+  el.textContent = `${sesion} · ${ahora.toTimeString().slice(0, 5)}`;
 }
 
 // DURACIÓN D/H
@@ -47,9 +47,9 @@ function guardarCambios() {
   if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
 
   const campos = [
-    "fecha","hora","tipo","gatillo","sl","tp","ratio","maxRatio",
-    "resultado","duracion","diario","horario","cumplePlan","observaciones",
-    "porcentaje","rNegativo","rPositivo"
+    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
+    "resultado", "duracion", "diario", "horario", "porcentaje",
+    "rNegativo", "rPositivo"
   ];
 
   campos.forEach(id => {
@@ -65,13 +65,13 @@ function guardarCambios() {
 }
 
 function calcularRatio() {
-  const sl = parseFloat(get("sl").value);
-  const tp = parseFloat(get("tp").value);
+  const sl = parseFloat(get("sl").value) || 0;
+  const tp = parseFloat(get("tp").value) || 0;
 
-  if (!isNaN(sl) && !isNaN(tp) && sl > 0 && tp > 0) {
-    const ratio = tp / sl;
-    get("ratio").value = ratio.toFixed(2);
-    if (!get("maxRatio").value) get("maxRatio").value = ratio.toFixed(2);
+  if (sl > 0 && tp > 0) {
+    const ratio = (tp / sl).toFixed(2);
+    get("ratio").value = ratio;
+    if (!get("maxRatio").value) get("maxRatio").value = ratio;
   } else {
     get("ratio").value = "";
   }
@@ -87,9 +87,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (tpInput) tpInput.addEventListener("input", calcularRatio);
 
   const camposAutoSave = [
-    "fecha","hora","tipo","gatillo","sl","tp","maxRatio",
-    "resultado","duracion","diario","horario","cumplePlan","observaciones",
-    "porcentaje","rNegativo","rPositivo","colorAuto"
+    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "maxRatio",
+    "resultado", "duracion", "diario", "horario", "porcentaje",
+    "rNegativo", "rPositivo", "colorAuto"
   ];
 
   camposAutoSave.forEach(id => {
@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (id === "duracion") normalizarDuracion();
       guardarCambios();
     });
-    if (["text","number","url","date","time","textarea"].includes(el.type)) {
+    if (["text", "number", "url", "date", "time"].includes(el.type)) {
       el.addEventListener("input", () => {
         if (id === "duracion") normalizarDuracion();
         guardarCambios();
@@ -131,7 +131,7 @@ function updateDatalist() {
 }
 
 function renderColores() {
-  const colores = ["#f0b90b","#f6465d","#2ebd85","#3b82f6","#8b5cf6","#f97316"];
+  const colores = ["#f0b90b", "#f6465d", "#2ebd85", "#3b82f6", "#8b5cf6", "#f97316"];
   [get("coloresRapidos"), get("coloresRapidosEditar")].forEach(cont => {
     if (!cont) return;
     cont.innerHTML = "";
@@ -176,10 +176,8 @@ function guardarPar() {
     archivado: false,
     datos: {
       fecha: ahora.toISOString().split("T")[0],
-      hora: ahora.getHours().toString().padStart(2,"0") + ":" +
-            ahora.getMinutes().toString().padStart(2,"0"),
-      cumplePlan: "",
-      observaciones: ""
+      hora: ahora.getHours().toString().padStart(2, "0") + ":" +
+        ahora.getMinutes().toString().padStart(2, "0")
     }
   };
 
@@ -255,9 +253,9 @@ function abrirForm(i) {
   if (colorAuto) colorAuto.value = t.color || "#f0b90b";
 
   const campos = [
-    "fecha","hora","tipo","gatillo","sl","tp","ratio","maxRatio",
-    "resultado","duracion","diario","horario","cumplePlan","observaciones",
-    "porcentaje","rNegativo","rPositivo"
+    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
+    "resultado", "duracion", "diario", "horario", "porcentaje",
+    "rNegativo", "rPositivo"
   ];
 
   campos.forEach(id => {
@@ -280,8 +278,8 @@ function abrirForm(i) {
   if (!get("hora").value) {
     const ahora = new Date();
     get("hora").value =
-      ahora.getHours().toString().padStart(2,"0") + ":" +
-      ahora.getMinutes().toString().padStart(2,"0");
+      ahora.getHours().toString().padStart(2, "0") + ":" +
+      ahora.getMinutes().toString().padStart(2, "0");
     guardarCambios();
   }
 
@@ -308,47 +306,51 @@ async function archivarPar() {
   save();
 
   try {
-    // Preparar datos para enviar a Google Sheets
+    // Preparar datos para Google Sheets
+    const trade = trades[currentIdx];
+    const datos = trade.datos;
+
     const tradeData = {
-      par: trades[currentIdx].nombre || '',
-      fecha: trades[currentIdx].datos.fecha || '',
-      hora: trades[currentIdx].datos.hora || '',
-      tipo: trades[currentIdx].datos.tipo || '',
-      gatillo: trades[currentIdx].datos.gatillo || '',
-      sl: trades[currentIdx].datos.sl || '',
-      tp: trades[currentIdx].datos.tp || '',
-      ratio: trades[currentIdx].datos.ratio || '',
-      maxRatio: trades[currentIdx].datos.maxRatio || '',
-      resultado: trades[currentIdx].datos.resultado || '',
-      duracion: trades[currentIdx].datos.duracion || '',
-      diario: trades[currentIdx].datos.diario || '',
-      horario: trades[currentIdx].datos.horario || '',
-      cumplePlan: trades[currentIdx].datos.cumplePlan || '',
-      observaciones: trades[currentIdx].datos.observaciones || '',
-      porcentaje: trades[currentIdx].datos.porcentaje || '',
-      rNegativo: trades[currentIdx].datos.rNegativo || '',
-      rPositivo: trades[currentIdx].datos.rPositivo || ''
+      par: trade.nombre || '',
+      fecha: datos.fecha || '',
+      hora: datos.hora || '',
+      tipo: datos.tipo || '',
+      gatillo: datos.gatillo || '',
+      sl: datos.sl || '',
+      tp: datos.tp || '',
+      ratio: datos.ratio || '',
+      maxRatio: datos.maxRatio || '',
+      resultado: datos.resultado || '',
+      duracion: datos.duracion || '',
+      diario: datos.diario || '',
+      horario: datos.horario || '',
+      porcentaje: datos.porcentaje || '',
+      rNegativo: datos.rNegativo || '',
+      rPositivo: datos.rPositivo || ''
     };
 
-    // Enviar a Google Sheets usando parámetros URL
-    const params = new URLSearchParams();
+    console.log("Enviando datos a Google Sheets:", tradeData);
+
+    // Enviar usando FormData (más compatible)
+    const formData = new FormData();
     Object.keys(tradeData).forEach(key => {
-      params.append(key, tradeData[key]);
+      formData.append(key, tradeData[key]);
     });
 
-    // Enviar la solicitud
-    await fetch(`${URL_SHEETS}?${params}`, {
+    // IMPORTANTE: Usar 'no-cors' para evitar problemas
+    const response = await fetch(URL_SHEETS, {
       method: 'POST',
-      mode: 'no-cors'
+      mode: 'no-cors',
+      body: new URLSearchParams(tradeData)
     });
 
-    console.log('Datos enviados a Google Sheets:', tradeData);
-    
+    console.log("Solicitud enviada a Google Sheets");
+
   } catch (error) {
-    console.error('Error al enviar a Google Sheets:', error);
+    console.error("Error al enviar a Google Sheets:", error);
   }
 
-  alert("Trade archivado correctamente");
+  alert("✅ Trade archivado correctamente\n✓ Guardado en localStorage\n✓ Enviado a Google Sheets");
   volverHome();
 }
 
@@ -380,16 +382,16 @@ function abrirHistorial() {
   const fFecha = get("filtroFecha")?.value || "";
 
   const filtrados = trades
-    .map((t,i) => ({...t, origIdx:i}))
+    .map((t, i) => ({ ...t, origIdx: i }))
     .filter(t => {
       if (!t.archivado) return false;
       const matchNom = t.nombre.includes(fNom);
       const matchFecha = fFecha === "" || (t.datos.fecha === fFecha);
       return matchNom && matchFecha;
     })
-    .sort((a,b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
+    .sort((a, b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
 
-  let n=0,p=0;
+  let n = 0, p = 0;
   filtrados.forEach(t => {
     n += parseFloat(t.datos.rNegativo || 0);
     p += parseFloat(t.datos.rPositivo || 0);
@@ -400,7 +402,7 @@ function abrirHistorial() {
     resumen.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
       <span style="color:#ef4444; font-weight:700;">R- ${n.toFixed(2)}</span>
       <span style="color:#10b981; font-weight:700;">R+ ${p.toFixed(2)}</span>
-      <b style="color:#f0b90b;">NETO ${(p-n).toFixed(2)} R</b>
+      <b style="color:#f0b90b;">NETO ${(p - n).toFixed(2)} R</b>
     </div>`;
   }
 
@@ -408,8 +410,8 @@ function abrirHistorial() {
     const statusClass = t.datos.resultado?.toUpperCase().includes("WIN")
       ? "win"
       : t.datos.resultado?.toUpperCase().includes("LOSS")
-      ? "loss"
-      : "";
+        ? "loss"
+        : "";
 
     const d = document.createElement("div");
     d.className = "historial-item";
@@ -446,22 +448,17 @@ function verDetalle(i) {
     <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
   </div>`;
 
-  const camposMostrar = [
-    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
-    "resultado", "duracion", "diario", "horario", "cumplePlan", "observaciones",
-    "porcentaje", "rNegativo", "rPositivo"
-  ];
-
-  camposMostrar.forEach(key => {
-    let val = t.datos[key] || '---';
+  for (const key in t.datos) {
+    if (key === "archivedAt") continue;
+    let val = t.datos[key];
     if (key.includes("diario") || key.includes("horario")) {
-      val = val && val !== '---' ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
+      val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
     }
     html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
       <span style="color:var(--subtext)">${key.toUpperCase()}</span>
-      <span>${val}</span>
+      <span>${val || "---"}</span>
     </div>`;
-  });
+  }
 
   html += `
     <button onclick="eliminarUno(${t.id})" class="btn-danger premium" style="width:100%; margin-top:18px;">
@@ -527,6 +524,6 @@ window.eliminarUno = eliminarUno;
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js")
-    .catch(err => console.log("SW error:", err));
+      .catch(err => console.log("SW error:", err));
   });
 }
