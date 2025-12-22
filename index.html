@@ -4,12 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📈 TRADING 📉</title>
-
   <!-- Manifest PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0c10">
   <link rel="icon" type="image/png" href="icon-192.png">
-
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -46,98 +44,114 @@
   <section id="operaciones" class="oculto">
     <h2 id="tituloPar" class="titulo-premium"></h2>
     <div class="card-glass premium">
-        <div id="coloresRapidosEditar" class="color-grid"></div>
-        <input type="color" id="colorAuto" class="color-picker">
-        
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">📅 Fecha</p>
-              <input type="date" id="fecha">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">⏰ Hora</p>
-              <input type="time" id="hora">
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">📈 Tipo</p>
-              <select id="tipo">
-                <option>BUY</option>
-                <option>SELL</option>
-              </select>
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">🔥 Gatillo</p>
-              <select id="gatillo">
-                <option>G3V</option>
-                <option>ENVOLVENTE</option>
-                <option>PINBAR</option>
-              </select>
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">🛑 SL Pips</p>
-              <input type="number" placeholder="SL Pips" id="sl" step="0.01" min="0">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">🎯 TP Pips</p>
-              <input type="number" placeholder="TP Pips" id="tp" step="0.01" min="0">
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">RATIO</p>
-              <input placeholder="RATIO" id="ratio" readonly class="input-readonly premium">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">MAX RATIO</p>
-              <input placeholder="MAX RATIO" id="maxRatio" step="0.01">
-            </div>
-        </div>
-        
+      <div id="coloresRapidosEditar" class="color-grid"></div>
+      <input type="color" id="colorAuto" class="color-picker">
+      
+      <div class="grid-2">
         <div class="input-group">
-          <p class="label-input glow">🏆 RESULTADO</p>
-          <input placeholder="WIN / LOSS / BE" id="resultado">
+          <p class="label-input glow">📅 Fecha</p>
+          <input type="date" id="fecha">
         </div>
-
         <div class="input-group">
-          <p class="label-input glow">⏱️ DURACIÓN</p>
-          <input placeholder="Ej: 1D 2H" id="duracion">
+          <p class="label-input glow">⏰ Hora</p>
+          <input type="time" id="hora">
         </div>
+      </div>
 
+      <div class="grid-2">
         <div class="input-group">
-          <p class="label-input glow">🔗 LINK DIARIO</p>
-          <input type="url" placeholder="URL de captura diaria" id="diario">
+          <p class="label-input glow">📈 Tipo</p>
+          <select id="tipo">
+            <option>BUY</option>
+            <option>SELL</option>
+          </select>
         </div>
+        <div class="input-group">
+          <p class="label-input glow">🔥 Gatillo</p>
+          <select id="gatillo">
+            <option>G3V</option>
+            <option>ENVOLVENTE</option>
+            <option>PINBAR</option>
+          </select>
+        </div>
+      </div>
 
+      <div class="grid-2">
         <div class="input-group">
-          <p class="label-input glow">🔗 LINK HORARIO</p>
-          <input type="url" placeholder="URL de captura H1, M15..." id="horario">
+          <p class="label-input glow">🛑 SL Pips</p>
+          <input type="number" placeholder="SL Pips" id="sl" step="0.01" min="0">
         </div>
+        <div class="input-group">
+          <p class="label-input glow">🎯 TP Pips</p>
+          <input type="number" placeholder="TP Pips" id="tp" step="0.01" min="0">
+        </div>
+      </div>
 
+      <div class="grid-2">
         <div class="input-group">
-          <p class="label-input glow">📊 PORCENTAJE %</p>
-          <input placeholder="Ej: 0.5, 1, 2..." id="porcentaje">
+          <p class="label-input glow">RATIO</p>
+          <input placeholder="RATIO" id="ratio" readonly class="input-readonly premium">
         </div>
-        
-        <div class="grid-2 r-grid">
-            <div class="input-group">
-              <p class="label-input glow">📉 R NEG</p>
-              <input placeholder="R NEG" id="rNegativo" class="input-danger">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">📈 R POS</p>
-              <input placeholder="R POS" id="rPositivo" class="input-success">
-            </div>
+        <div class="input-group">
+          <p class="label-input glow">MAX RATIO</p>
+          <input placeholder="MAX RATIO" id="maxRatio" step="0.01">
         </div>
-        
-        <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
-        <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
+      </div>
+      
+      <div class="input-group">
+        <p class="label-input glow">🏆 RESULTADO</p>
+        <input placeholder="WIN / LOSS / BE" id="resultado">
+      </div>
+
+      <div class="input-group">
+        <p class="label-input glow">⏱️ DURACIÓN</p>
+        <input placeholder="Ej: 1D 2H" id="duracion">
+      </div>
+
+      <div class="input-group">
+        <p class="label-input glow">🔗 LINK DIARIO</p>
+        <input type="url" placeholder="URL de captura diaria" id="diario">
+      </div>
+
+      <div class="input-group">
+        <p class="label-input glow">🔗 LINK HORARIO</p>
+        <input type="url" placeholder="URL de captura H1, M15..." id="horario">
+      </div>
+
+      <!-- CAMPOS NUEVOS AGREGADOS -->
+      <div class="input-group">
+        <p class="label-input glow">✅ ¿CUMPLE PLAN?</p>
+        <select id="cumplePlan">
+          <option value="">Seleccionar</option>
+          <option>SI</option>
+          <option>NO</option>
+          <option>PARCIAL</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <p class="label-input glow">📝 OBSERVACIONES</p>
+        <textarea id="observaciones" placeholder="Observaciones o comentarios..." rows="3"></textarea>
+      </div>
+
+      <div class="input-group">
+        <p class="label-input glow">📊 PORCENTAJE %</p>
+        <input placeholder="Ej: 0.5, 1, 2..." id="porcentaje">
+      </div>
+      
+      <div class="grid-2 r-grid">
+        <div class="input-group">
+          <p class="label-input glow">📉 R NEG</p>
+          <input placeholder="R NEG" id="rNegativo" class="input-danger">
+        </div>
+        <div class="input-group">
+          <p class="label-input glow">📈 R POS</p>
+          <input placeholder="R POS" id="rPositivo" class="input-success">
+        </div>
+      </div>
+      
+      <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
+      <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
     </div>
   </section>
 
@@ -146,14 +160,14 @@
     <h2 class="titulo-premium">📁 HISTORIAL</h2>
     
     <div class="card-glass premium filter-panel">
-        <input 
-          type="text" 
-          id="filtroNombre" 
-          placeholder="🔍 Buscar por nombre..." 
-          oninput="abrirHistorial()" 
-          class="input-search">
-        <input type="date" id="filtroFecha" onchange="abrirHistorial()">
-        <button onclick="limpiarFiltros()" class="btn-ghost">✨ Limpiar</button>
+      <input 
+        type="text" 
+        id="filtroNombre" 
+        placeholder="🔍 Buscar por nombre..." 
+        oninput="abrirHistorial()" 
+        class="input-search">
+      <input type="date" id="filtroFecha" onchange="abrirHistorial()">
+      <button onclick="limpiarFiltros()" class="btn-ghost">✨ Limpiar</button>
     </div>
 
     <div id="resumenGlobal" class="resumen-premium"></div>
