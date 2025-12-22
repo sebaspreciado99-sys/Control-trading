@@ -43,6 +43,9 @@
   <!-- FORMULARIO DE OPERACIÓN -->
   <section id="operaciones" class="oculto">
     <h2 id="tituloPar" class="titulo-premium"></h2>
+    <!-- INDICADOR DE AUTOGUARDADO AGREGADO -->
+    <div id="autosaveIndicator"></div>
+    
     <div class="card-glass premium">
       <div id="coloresRapidosEditar" class="color-grid"></div>
       <input type="color" id="colorAuto" class="color-picker">
@@ -172,6 +175,8 @@
 
     <div id="resumenGlobal" class="resumen-premium"></div>
     <button onclick="eliminarSeleccionados()" class="btn-danger premium">🗑 Borrar Seleccionados</button>
+    <!-- BOTÓN DE EXPORTACIÓN AGREGADO -->
+    <button onclick="exportarBackup()" class="btn-archive premium">💾 Exportar Backup (JSON)</button>
     <div id="historialContenido"></div>
     <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
   </section>
