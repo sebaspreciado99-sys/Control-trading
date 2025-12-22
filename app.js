@@ -1,5 +1,6 @@
-// URL opcional para Google Sheets (puedes dejarla así o usar tu propia URL /exec)
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxdreZI71Yjhe1aQ8sKyzcarfZra2M_REwnJzFUaDzN2iwOe7cfakeN_FI6hfAeprm48Q/exec";
+// URL para Google Sheets (reemplaza con tu URL /exec)
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbyssb4Iwu5rfKpKDwx6gYAPyPCIgygtKAyjzWp3OlLfWRM9gHGwiMgXv9HqBTDUHacs/exec";
+
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
 let currentIdx = null;
@@ -29,18 +30,13 @@ function normalizarDuracion() {
 
   if (v === "") return;
 
-  // Espacios múltiples -> uno
-  v = v.replace(/s+/g, " ");
+  v = v.replace(/\s+/g, " ");
 
-  // Solo número -> añadir H
-  if (/^d+$/.test(v)) {
+  if (/^\d+$/.test(v)) {
     v = `${v}H`;
   }
 
-  // "1D2H" -> "1D 2H"
-  v = v.replace(/(d+)D(d+)H/, "$1D $2H");
-
-  // DIAS / HORAS -> D / H
+  v = v.replace(/(\d+)D(\d+)H/, "$1D $2H");
   v = v.replace(/DIAS?/g, "D").replace(/HORAS?/g, "H");
 
   dur.value = v;
@@ -49,29 +45,29 @@ function normalizarDuracion() {
 // GUARDAR CAMBIOS
 function guardarCambios() {
   if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
-  
+
   const campos = [
     "fecha","hora","tipo","gatillo","sl","tp","ratio","maxRatio",
     "resultado","duracion","diario","horario","porcentaje",
     "rNegativo","rPositivo"
   ];
-  
+
   campos.forEach(id => {
     const el = get(id);
     if (!el) return;
     trades[currentIdx].datos[id] = el.value;
   });
-  
+
   const colorAuto = get("colorAuto");
   if (colorAuto) trades[currentIdx].color = colorAuto.value;
-  
+
   save();
 }
 
 function calcularRatio() {
   const sl = parseFloat(get("sl").value);
   const tp = parseFloat(get("tp").value);
-  
+
   if (!isNaN(sl) && !isNaN(tp) && sl > 0 && tp > 0) {
     const ratio = tp / sl;
     get("ratio").value = ratio.toFixed(2);
@@ -79,7 +75,7 @@ function calcularRatio() {
   } else {
     get("ratio").value = "";
   }
-  
+
   guardarCambios();
 }
 
@@ -95,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "resultado","duracion","diario","horario","porcentaje",
     "rNegativo","rPositivo","colorAuto"
   ];
-  
+
   camposAutoSave.forEach(id => {
     const el = get(id);
     if (!el) return;
@@ -110,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   });
-  
+
   updateDatalist();
   renderColores();
   showHome();
@@ -164,14 +160,14 @@ function guardarPar() {
   const inputPar = get("inputPar");
   const colorPar = get("colorPar");
   if (!inputPar || !colorPar) return;
-  
+
   const nom = inputPar.value.trim().toUpperCase();
   if (!nom) {
     alert("Por favor, ingresa un nombre para el activo");
     return;
   }
   if (!sugerencias.includes(nom)) sugerencias.push(nom);
-  
+
   const ahora = new Date();
   const nuevoTrade = {
     id: Date.now(),
@@ -184,7 +180,7 @@ function guardarPar() {
             ahora.getMinutes().toString().padStart(2,"0")
     }
   };
-  
+
   trades.push(nuevoTrade);
   inputPar.value = "";
   save();
@@ -200,25 +196,24 @@ function showHome() {
   const detalle = get("detalle");
   const btnHistorial = get("btnHistorial");
   const list = get("listaPares");
-  
+
   if (home) home.classList.remove("oculto");
   if (operaciones) operaciones.classList.add("oculto");
   if (historial) historial.classList.add("oculto");
   if (detalle) detalle.classList.add("oculto");
   if (btnHistorial) btnHistorial.style.display = "flex";
   if (!list) return;
-  
+
   list.innerHTML = "";
   const paresActivos = trades.filter(t => !t.archivado);
-  
+
   if (paresActivos.length === 0) {
-    list.innerHTML = `
-      <div class="card-glass" style="text-align:center; color:var(--subtext);">
-        No hay pares activos. Agrega uno nuevo.
-      </div>`;
+    list.innerHTML = `<div class="card-glass" style="text-align:center; color:var(--subtext);">
+      No hay pares activos. Agrega uno nuevo.
+    </div>`;
     return;
   }
-  
+
   paresActivos.forEach(t => {
     const d = document.createElement("div");
     d.className = "par";
@@ -226,7 +221,7 @@ function showHome() {
     if (currentIdx !== null && trades[currentIdx].id === t.id) {
       d.classList.add("selected");
     }
-    
+
     let info = `<div style="font-size:1.2rem;">${t.nombre}</div>`;
     if (t.datos.fecha) {
       info += `<div style="color:var(--subtext); font-weight:400; font-size:0.9rem; margin-top:6px;">`;
@@ -234,9 +229,8 @@ function showHome() {
       if (t.datos.resultado) info += ` | ${t.datos.resultado}`;
       info += `</div>`;
     }
-    
-    d.innerHTML = info;
 
+    d.innerHTML = info;
     d.addEventListener("click", () => {
       const idx = trades.findIndex(tr => tr.id === t.id);
       if (idx !== -1) {
@@ -252,18 +246,18 @@ function abrirForm(i) {
   currentIdx = i;
   const t = trades[i];
   if (!t) return;
-  
+
   const tituloPar = get("tituloPar");
   const colorAuto = get("colorAuto");
   if (tituloPar) tituloPar.textContent = t.nombre;
   if (colorAuto) colorAuto.value = t.color || "#f0b90b";
-  
+
   const campos = [
     "fecha","hora","tipo","gatillo","sl","tp","ratio","maxRatio",
     "resultado","duracion","diario","horario","porcentaje",
     "rNegativo","rPositivo"
   ];
-  
+
   campos.forEach(id => {
     const el = get(id);
     if (!el) return;
@@ -273,14 +267,14 @@ function abrirForm(i) {
       el.value = "";
     }
   });
-  
+
   normalizarDuracion();
 
   if (!get("fecha").value) {
     get("fecha").value = new Date().toISOString().split("T")[0];
     guardarCambios();
   }
-  
+
   if (!get("hora").value) {
     const ahora = new Date();
     get("hora").value =
@@ -288,43 +282,72 @@ function abrirForm(i) {
       ahora.getMinutes().toString().padStart(2,"0");
     guardarCambios();
   }
-  
+
   const home = get("home");
   const operaciones = get("operaciones");
   const btnHistorial = get("btnHistorial");
   if (home) home.classList.add("oculto");
   if (operaciones) operaciones.classList.remove("oculto");
   if (btnHistorial) btnHistorial.style.display = "none";
-  
+
   calcularRatio();
 }
 
-function archivarPar() {
+async function archivarPar() {
   if (!get("fecha").value || !get("resultado").value) {
     alert("Por favor, completa al menos Fecha y Resultado antes de archivar");
     return;
   }
-  
+
   normalizarDuracion();
   guardarCambios();
   trades[currentIdx].datos.archivedAt = Date.now();
   trades[currentIdx].archivado = true;
   save();
-  
+
   try {
-    fetch(URL_SHEETS,{
-      method:"POST",
-      mode:"no-cors",
-      body:JSON.stringify({
-        ...trades[currentIdx].datos,
-        par: trades[currentIdx].nombre,
-        color: trades[currentIdx].color
-      })
+    // Preparar datos para enviar a Google Sheets
+    const tradeData = {
+      fecha: trades[currentIdx].datos.fecha || '',
+      hora: trades[currentIdx].datos.hora || '',
+      par: trades[currentIdx].nombre || '',
+      tipo: trades[currentIdx].datos.tipo || '',
+      gatillo: trades[currentIdx].datos.gatillo || '',
+      sl: trades[currentIdx].datos.sl || '',
+      tp: trades[currentIdx].datos.tp || '',
+      ratio: trades[currentIdx].datos.ratio || '',
+      maxRatio: trades[currentIdx].datos.maxRatio || '',
+      resultado: trades[currentIdx].datos.resultado || '',
+      duracion: trades[currentIdx].datos.duracion || '',
+      diario: trades[currentIdx].datos.diario || '',
+      horario: trades[currentIdx].datos.horario || '',
+      porcentaje: trades[currentIdx].datos.porcentaje || '',
+      rNegativo: trades[currentIdx].datos.rNegativo || '',
+      rPositivo: trades[currentIdx].datos.rPositivo || '',
+      color: trades[currentIdx].color || '#f0b90b',
+      timestamp: new Date().toISOString()
+    };
+
+    // Enviar a Google Sheets usando FormData (mejor compatibilidad)
+    const formData = new FormData();
+    Object.keys(tradeData).forEach(key => {
+      formData.append(key, tradeData[key]);
     });
-  } catch(e) {
-    console.log("Error enviando a Sheets:", e);
+
+    // Enviar la solicitud
+    const response = await fetch(URL_SHEETS, {
+      method: 'POST',
+      mode: 'no-cors', // Usar no-cors para evitar problemas CORS
+      body: formData
+    });
+
+    console.log('Datos enviados a Google Sheets:', tradeData);
+    
+  } catch (error) {
+    console.error('Error al enviar a Google Sheets:', error);
+    // Continuar aunque falle para no perder el trade
   }
-  
+
   alert("Trade archivado correctamente");
   volverHome();
 }
@@ -344,18 +367,18 @@ function abrirHistorial() {
   const operaciones = get("operaciones");
   const btnHistorial = get("btnHistorial");
   const cont = get("historialContenido");
-  
+
   if (home) home.classList.add("oculto");
   if (operaciones) operaciones.classList.add("oculto");
   if (detalle) detalle.classList.add("oculto");
   if (historial) historial.classList.remove("oculto");
   if (btnHistorial) btnHistorial.style.display = "none";
   if (!cont) return;
-  
+
   cont.innerHTML = "";
   const fNom = (get("filtroNombre")?.value || "").toUpperCase();
   const fFecha = get("filtroFecha")?.value || "";
-  
+
   const filtrados = trades
     .map((t,i) => ({...t, origIdx:i}))
     .filter(t => {
@@ -365,30 +388,29 @@ function abrirHistorial() {
       return matchNom && matchFecha;
     })
     .sort((a,b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
-  
+
   let n=0,p=0;
   filtrados.forEach(t => {
     n += parseFloat(t.datos.rNegativo || 0);
     p += parseFloat(t.datos.rPositivo || 0);
   });
-  
+
   const resumen = get("resumenGlobal");
   if (resumen) {
-    resumen.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="color:#ef4444; font-weight:700;">R- ${n.toFixed(2)}</span>
-        <span style="color:#10b981; font-weight:700;">R+ ${p.toFixed(2)}</span>
-        <b style="color:#f0b90b;">NETO ${(p-n).toFixed(2)} R</b>
-      </div>`;
+    resumen.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="color:#ef4444; font-weight:700;">R- ${n.toFixed(2)}</span>
+      <span style="color:#10b981; font-weight:700;">R+ ${p.toFixed(2)}</span>
+      <b style="color:#f0b90b;">NETO ${(p-n).toFixed(2)} R</b>
+    </div>`;
   }
-  
+
   filtrados.forEach(t => {
     const statusClass = t.datos.resultado?.toUpperCase().includes("WIN")
       ? "win"
       : t.datos.resultado?.toUpperCase().includes("LOSS")
       ? "loss"
       : "";
-    
+
     const d = document.createElement("div");
     d.className = "historial-item";
     d.innerHTML = `
@@ -412,38 +434,35 @@ function verDetalle(i) {
   const detalle = get("detalle");
   if (historial) historial.classList.add("oculto");
   if (detalle) detalle.classList.remove("oculto");
-  
+
   const t = trades[i];
   if (!t) return;
-  
+
   get("detalleTitulo").textContent = t.nombre;
   let html = `<div class="card-glass" style="font-size:14px;">`;
-  
-  html += `
-    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.5); padding:8px 0; margin-bottom: 8px;">
-      <span style="color:var(--subtext)">COLOR</span>
-      <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
-    </div>`;
-  
+
+  html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.5); padding:8px 0; margin-bottom: 8px;">
+    <span style="color:var(--subtext)">COLOR</span>
+    <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
+  </div>`;
+
   for (const key in t.datos) {
     if (key === "archivedAt") continue;
     let val = t.datos[key];
     if (key.includes("diario") || key.includes("horario")) {
       val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
     }
-    html += `
-      <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
-        <span style="color:var(--subtext)">${key.toUpperCase()}</span>
-        <span>${val || "---"}</span>
-      </div>`;
+    html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
+      <span style="color:var(--subtext)">${key.toUpperCase()}</span>
+      <span>${val || "---"}</span>
+    </div>`;
   }
-  
+
   html += `
     <button onclick="eliminarUno(${t.id})" class="btn-danger premium" style="width:100%; margin-top:18px;">
       Eliminar Permanente
     </button>
   </div>`;
-  
   get("detalleContenido").innerHTML = html;
 }
 
@@ -469,7 +488,7 @@ function eliminarSeleccionados() {
     return;
   }
   if (!confirm(`¿Estás seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
-  
+
   const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
   trades = trades.filter(t => !ids.includes(t.id));
   save();
@@ -503,6 +522,6 @@ window.eliminarUno = eliminarUno;
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js")
-      .catch(err => console.log("SW error:", err));
+    .catch(err => console.log("SW error:", err));
   });
 }
