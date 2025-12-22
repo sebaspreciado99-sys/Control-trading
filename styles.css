@@ -376,6 +376,51 @@ button:active {
   border: 1px solid rgba(60,70,90,0.7);
 }
 
+/* ==================== ESTILOS PARA MEJORAS ==================== */
+
+/* TOAST NOTIFICATIONS */
+#appToast {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  padding: 15px 20px;
+  border-radius: 12px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  z-index: 10000;
+  background: #10b981;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  border: 1px solid rgba(16,185,129,0.3);
+  transform: translateX(120%);
+  transition: transform 0.4s ease-out, opacity 0.3s ease;
+  max-width: 320px;
+  word-break: break-word;
+  opacity: 0;
+}
+
+#appToast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+#appToast.error {
+  background: #ef4444;
+  border-color: rgba(239,68,68,0.3);
+}
+
+/* INDICADOR DE AUTOGUARDADO */
+#autosaveIndicator {
+  text-align: center;
+  color: var(--accent);
+  font-size: 12px;
+  height: 18px;
+  margin-top: -15px;
+  margin-bottom: 15px;
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
 /* UTILIDADES */
 .oculto {
   display: none !important;
@@ -392,5 +437,12 @@ button:active {
   .card-glass {
     border-radius: 20px;
     padding: 20px;
+  }
+  /* Ajuste para toast en móvil */
+  #appToast {
+    top: 70px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
   }
 }
