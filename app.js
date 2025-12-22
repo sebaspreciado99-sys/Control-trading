@@ -306,7 +306,7 @@ async function archivarPar() {
   save();
 
   try {
-    // Preparar datos para enviar a Google Sheets
+    // Preparar datos para enviar a Google Sheets SIN el campo "color"
     const tradeData = {
       fecha: trades[currentIdx].datos.fecha || '',
       hora: trades[currentIdx].datos.hora || '',
@@ -323,22 +323,20 @@ async function archivarPar() {
       horario: trades[currentIdx].datos.horario || '',
       porcentaje: trades[currentIdx].datos.porcentaje || '',
       rNegativo: trades[currentIdx].datos.rNegativo || '',
-      rPositivo: trades[currentIdx].datos.rPositivo || '',
-      color: trades[currentIdx].color || '#f0b90b',
-      timestamp: new Date().toISOString()
+      rPositivo: trades[currentIdx].datos.rPositivo || ''
+      // NOTA: Se eliminó el campo "color" aquí
     };
 
-    // Enviar a Google Sheets usando FormData (mejor compatibilidad)
-    const formData = new FormData();
+    // Enviar a Google Sheets usando parámetros URL (más compatible)
+    const params = new URLSearchParams();
     Object.keys(tradeData).forEach(key => {
-      formData.append(key, tradeData[key]);
+      params.append(key, tradeData[key]);
     });
 
-    // Enviar la solicitud
-    const response = await fetch(URL_SHEETS, {
+    // Enviar la solicitud con parámetros en la URL
+    await fetch(`${URL_SHEETS}?${params}`, {
       method: 'POST',
-      mode: 'no-cors', // Usar no-cors para evitar problemas CORS
-      body: formData
+      mode: 'no-cors'
     });
 
     console.log('Datos enviados a Google Sheets:', tradeData);
