@@ -1,4 +1,4 @@
-// URL para Google Sheets (¡ACTUALIZA ESTA URL DESPUÉS DE HACER EL NUEVO DESPLIEGUE DEL SCRIPT!)
+// URL para Google Sheets (¡ACTUALIZA ESTA URL DESPUÉS DEL NUEVO DESPLIEGUE DEL SCRIPT!)
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -220,39 +220,40 @@ function renderColores() {
     });
 }
 
+// ==================== FUNCIÓN MODIFICADA: GUARDAR PAR ====================
 function guardarPar() {
-  const inputPar = get("inputPar");
-  const colorPar = get("colorPar");
-  if (!inputPar || !colorPar) return;
+    const inputPar = get("inputPar");
+    const colorPar = get("colorPar");
+    if (!inputPar || !colorPar) return;
 
-  const nom = inputPar.value.trim().toUpperCase();
-  if (!nom) {
-    mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
-    return;
-  }
-  if (!sugerencias.includes(nom)) sugerencias.push(nom);
-
-  const ahora = new Date();
-  const nuevoTrade = {
-    id: Date.now(),
-    nombre: nom,
-    color: colorPar.value,
-    archivado: false,
-    archivadoPreviamente: false, // 👈 NUEVA PROPIEDAD CLAVE
-    datos: {
-      fecha: ahora.toISOString().split("T")[0],
-      hora: ahora.getHours().toString().padStart(2, "0") + ":" +
-            ahora.getMinutes().toString().padStart(2, "0")
+    const nom = inputPar.value.trim().toUpperCase();
+    if (!nom) {
+        mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
+        return;
     }
-  };
+    if (!sugerencias.includes(nom)) sugerencias.push(nom);
 
-  trades.push(nuevoTrade);
-  inputPar.value = "";
-  save();
-  updateDatalist();
-  showHome();
-  abrirForm(trades.length - 1);
-  mostrarToast("✅ Nuevo par creado", 'exito');
+    const ahora = new Date();
+    const nuevoTrade = {
+        id: Date.now(),
+        nombre: nom,
+        color: colorPar.value,
+        archivado: false,
+        archivadoPreviamente: false, // 👈 NUEVA PROPIEDAD CLAVE
+        datos: {
+            fecha: ahora.toISOString().split("T")[0],
+            hora: ahora.getHours().toString().padStart(2, "0") + ":" +
+                ahora.getMinutes().toString().padStart(2, "0")
+        }
+    };
+
+    trades.push(nuevoTrade);
+    inputPar.value = "";
+    save();
+    updateDatalist();
+    showHome();
+    abrirForm(trades.length - 1);
+    mostrarToast("✅ Nuevo par creado", 'exito');
 }
 
 function showHome() {
@@ -369,19 +370,20 @@ async function archivarPar() {
     normalizarDuracion();
     guardarCambios();
     
-    // 👇 Determinar si el trade YA estaba archivado antes
-    const tradeYaEstabaArchivado = trades[currentIdx].archivado;
+    // 👇 LÓGICA CORREGIDA: Verificar si ALGUNA VEZ fue archivado
+    const trade = trades[currentIdx];
+    const esUnaActualizacion = trade.archivadoPreviamente === true;
     
-    trades[currentIdx].datos.archivedAt = Date.now();
-    trades[currentIdx].archivado = true;
+    trade.datos.archivedAt = Date.now();
+    trade.archivado = true;
+    trade.archivadoPreviamente = true; // Ahora definitivamente sí ha sido archivado
     save();
 
     try {
-        const trade = trades[currentIdx];
         const datos = trade.datos;
 
         const tradeData = {
-            id: trade.id, // 👈 Enviamos el ID único
+            id: trade.id,
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -400,9 +402,9 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // 👇 MAGIA: Si el trade YA estaba archivado, es una ACTUALIZACIÓN
-        if (tradeYaEstabaArchivado) {
-            tradeData.accion = 'actualizar'; // 👈 Bandera clave para el script
+        // 👇 ENVIAR BANDERA DE ACTUALIZACIÓN SI CORRESPONDE
+        if (esUnaActualizacion) {
+            tradeData.accion = 'actualizar';
         }
 
         const params = new URLSearchParams();
@@ -418,7 +420,7 @@ async function archivarPar() {
         });
 
         // Mensaje personalizado
-        const mensaje = tradeYaEstabaArchivado 
+        const mensaje = esUnaActualizacion 
             ? "✅ Trade ACTUALIZADO en Google Sheets" 
             : "✅ NUEVO Trade archivado en Google Sheets";
         mostrarToast(mensaje, 'exito');
@@ -545,10 +547,12 @@ function verDetalle(i) {
     get("detalleContenido").innerHTML = html;
 }
 
+// ==================== FUNCIÓN MODIFICADA: RESTABLECER ====================
 function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) return;
     trades[idx].archivado = false;
+    trades[idx].archivadoPreviamente = true; // 👈 MARCAR COMO "ARCHIVADO ANTES"
     save();
     abrirHistorial();
     mostrarToast("Trade restablecido", 'exito');
@@ -608,3 +612,22 @@ if ("serviceWorker" in navigator) {
             .catch(err => console.log("SW error:", err));
     });
 }
+
+// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
+// Ejecutar esta función UNA VEZ después de actualizar el código
+function migrarTradesAntiguos() {
+    let cambioRealizado = false;
+    trades.forEach(t => {
+        if (t.archivadoPreviamente === undefined) {
+            t.archivadoPreviamente = t.archivado; // Si ya estaba archivado, ya fue a Sheets
+            cambioRealizado = true;
+        }
+    });
+    if (cambioRealizado) {
+        save();
+        console.log("✅ Migración de trades antiguos completada.");
+    }
+}
+
+// Ejecutar automáticamente al cargar la página
+migrarTradesAntiguos();
