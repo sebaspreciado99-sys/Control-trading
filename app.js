@@ -221,37 +221,38 @@ function renderColores() {
 }
 
 function guardarPar() {
-    const inputPar = get("inputPar");
-    const colorPar = get("colorPar");
-    if (!inputPar || !colorPar) return;
+  const inputPar = get("inputPar");
+  const colorPar = get("colorPar");
+  if (!inputPar || !colorPar) return;
 
-    const nom = inputPar.value.trim().toUpperCase();
-    if (!nom) {
-        mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
-        return;
+  const nom = inputPar.value.trim().toUpperCase();
+  if (!nom) {
+    mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
+    return;
+  }
+  if (!sugerencias.includes(nom)) sugerencias.push(nom);
+
+  const ahora = new Date();
+  const nuevoTrade = {
+    id: Date.now(),
+    nombre: nom,
+    color: colorPar.value,
+    archivado: false,
+    archivadoPreviamente: false, // 👈 NUEVA PROPIEDAD CLAVE
+    datos: {
+      fecha: ahora.toISOString().split("T")[0],
+      hora: ahora.getHours().toString().padStart(2, "0") + ":" +
+            ahora.getMinutes().toString().padStart(2, "0")
     }
-    if (!sugerencias.includes(nom)) sugerencias.push(nom);
+  };
 
-    const ahora = new Date();
-    const nuevoTrade = {
-        id: Date.now(), // ID único generado aquí
-        nombre: nom,
-        color: colorPar.value,
-        archivado: false,
-        datos: {
-            fecha: ahora.toISOString().split("T")[0],
-            hora: ahora.getHours().toString().padStart(2, "0") + ":" +
-                ahora.getMinutes().toString().padStart(2, "0")
-        }
-    };
-
-    trades.push(nuevoTrade);
-    inputPar.value = "";
-    save();
-    updateDatalist();
-    showHome();
-    abrirForm(trades.length - 1);
-    mostrarToast("✅ Nuevo par creado", 'exito');
+  trades.push(nuevoTrade);
+  inputPar.value = "";
+  save();
+  updateDatalist();
+  showHome();
+  abrirForm(trades.length - 1);
+  mostrarToast("✅ Nuevo par creado", 'exito');
 }
 
 function showHome() {
