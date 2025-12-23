@@ -1,4 +1,4 @@
-// URL para Google Sheets (reemplaza con tu URL /exec)
+// URL para Google Sheets (¡ACTUALIZA ESTA URL DESPUÉS DE HACER EL NUEVO DESPLIEGUE DEL SCRIPT!)
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -7,7 +7,7 @@ let currentIdx = null;
 
 const get = id => document.getElementById(id);
 
-// ==================== NUEVA FUNCIÓN: TOAST ====================
+// ==================== FUNCIÓN: TOAST ====================
 function mostrarToast(mensaje, tipo = 'exito') {
     const toastExistente = document.getElementById('appToast');
     if (toastExistente) toastExistente.remove();
@@ -25,7 +25,7 @@ function mostrarToast(mensaje, tipo = 'exito') {
     }, 4000);
 }
 
-// ==================== NUEVA FUNCIÓN: EXPORTAR BACKUP ====================
+// ==================== FUNCIÓN: EXPORTAR BACKUP ====================
 function exportarBackup() {
     try {
         const datos = {
@@ -89,7 +89,7 @@ function normalizarDuracion() {
     dur.value = v;
 }
 
-// ==================== FUNCIÓN MODIFICADA: GUARDAR CAMBIOS (con autosave) ====================
+// GUARDAR CAMBIOS (con autosave)
 function guardarCambios(mostrarNotificacion = false) {
     if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
 
@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ==================== NUEVO: AUTOGUARDADO CADA 5 SEGUNDOS ====================
+    // AUTOGUARDADO CADA 5 SEGUNDOS
     setInterval(() => {
         if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
             guardarCambios();
@@ -234,7 +234,7 @@ function guardarPar() {
 
     const ahora = new Date();
     const nuevoTrade = {
-        id: Date.now(),
+        id: Date.now(), // ID único generado aquí
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -358,6 +358,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
+// ==================== FUNCIÓN MODIFICADA: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -366,29 +367,42 @@ async function archivarPar() {
 
     normalizarDuracion();
     guardarCambios();
+    
+    // 👇 Determinar si el trade YA estaba archivado antes
+    const tradeYaEstabaArchivado = trades[currentIdx].archivado;
+    
     trades[currentIdx].datos.archivedAt = Date.now();
     trades[currentIdx].archivado = true;
     save();
 
     try {
+        const trade = trades[currentIdx];
+        const datos = trade.datos;
+
         const tradeData = {
-            par: trades[currentIdx].nombre || '',
-            fecha: trades[currentIdx].datos.fecha || '',
-            hora: trades[currentIdx].datos.hora || '',
-            tipo: trades[currentIdx].datos.tipo || '',
-            gatillo: trades[currentIdx].datos.gatillo || '',
-            sl: trades[currentIdx].datos.sl || '',
-            tp: trades[currentIdx].datos.tp || '',
-            ratio: trades[currentIdx].datos.ratio || '',
-            maxRatio: trades[currentIdx].datos.maxRatio || '',
-            resultado: trades[currentIdx].datos.resultado || '',
-            duracion: trades[currentIdx].datos.duracion || '',
-            diario: trades[currentIdx].datos.diario || '',
-            horario: trades[currentIdx].datos.horario || '',
-            porcentaje: trades[currentIdx].datos.porcentaje || '',
-            rNegativo: trades[currentIdx].datos.rNegativo || '',
-            rPositivo: trades[currentIdx].datos.rPositivo || ''
+            id: trade.id, // 👈 Enviamos el ID único
+            par: trade.nombre || '',
+            fecha: datos.fecha || '',
+            hora: datos.hora || '',
+            tipo: datos.tipo || '',
+            gatillo: datos.gatillo || '',
+            sl: datos.sl || '',
+            tp: datos.tp || '',
+            ratio: datos.ratio || '',
+            maxRatio: datos.maxRatio || '',
+            resultado: datos.resultado || '',
+            duracion: datos.duracion || '',
+            diario: datos.diario || '',
+            horario: datos.horario || '',
+            porcentaje: datos.porcentaje || '',
+            rNegativo: datos.rNegativo || '',
+            rPositivo: datos.rPositivo || ''
         };
+        
+        // 👇 MAGIA: Si el trade YA estaba archivado, es una ACTUALIZACIÓN
+        if (tradeYaEstabaArchivado) {
+            tradeData.accion = 'actualizar'; // 👈 Bandera clave para el script
+        }
 
         const params = new URLSearchParams();
         Object.keys(tradeData).forEach(key => {
@@ -402,11 +416,17 @@ async function archivarPar() {
             mode: 'no-cors'
         });
 
+        // Mensaje personalizado
+        const mensaje = tradeYaEstabaArchivado 
+            ? "✅ Trade ACTUALIZADO en Google Sheets" 
+            : "✅ NUEVO Trade archivado en Google Sheets";
+        mostrarToast(mensaje, 'exito');
+        
     } catch (error) {
         console.error('Error al enviar a Google Sheets:', error);
+        mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
     }
 
-    mostrarToast("✅ Trade archivado en Google Sheets", 'exito');
     volverHome();
 }
 
@@ -578,7 +598,7 @@ window.eliminarSeleccionados = eliminarSeleccionados;
 window.volverHistorial = volverHistorial;
 window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
-window.exportarBackup = exportarBackup; // NUEVA
+window.exportarBackup = exportarBackup;
 
 // Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
