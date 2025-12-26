@@ -235,11 +235,11 @@ function guardarPar() {
 
     const ahora = new Date();
     const nuevoTrade = {
-        id: Date.now(),
+        id: Date.now(),  // ID único basado en timestamp
         nombre: nom,
         color: colorPar.value,
         archivado: false,
-        archivadoPreviamente: false, // 👈 NUEVA PROPIEDAD CLAVE
+        archivadoPreviamente: false,
         datos: {
             fecha: ahora.toISOString().split("T")[0],
             hora: ahora.getHours().toString().padStart(2, "0") + ":" +
@@ -370,20 +370,20 @@ async function archivarPar() {
     normalizarDuracion();
     guardarCambios();
     
-    // 👇 LÓGICA CORREGIDA: Verificar si ALGUNA VEZ fue archivado
+    // Determinar si es una actualización
     const trade = trades[currentIdx];
     const esUnaActualizacion = trade.archivadoPreviamente === true;
     
     trade.datos.archivedAt = Date.now();
     trade.archivado = true;
-    trade.archivadoPreviamente = true; // Ahora definitivamente sí ha sido archivado
+    trade.archivadoPreviamente = true;
     save();
 
     try {
         const datos = trade.datos;
 
         const tradeData = {
-            id: trade.id,
+            id: trade.id,  // ID único del trade
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -402,7 +402,7 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // 👇 ENVIAR BANDERA DE ACTUALIZACIÓN SI CORRESPONDE
+        // Agregar bandera si es una actualización
         if (esUnaActualizacion) {
             tradeData.accion = 'actualizar';
         }
@@ -419,7 +419,6 @@ async function archivarPar() {
             mode: 'no-cors'
         });
 
-        // Mensaje personalizado
         const mensaje = esUnaActualizacion 
             ? "✅ Trade ACTUALIZADO en Google Sheets" 
             : "✅ NUEVO Trade archivado en Google Sheets";
@@ -551,11 +550,20 @@ function verDetalle(i) {
 function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) return;
+    
+    // Solo cambiar el estado de archivado, mantener archivadoPreviamente como true
     trades[idx].archivado = false;
-    trades[idx].archivadoPreviamente = true; // 👈 MARCAR COMO "ARCHIVADO ANTES"
+    // IMPORTANTE: Mantener archivadoPreviamente como true porque ya fue enviado a Google Sheets
+    trades[idx].archivadoPreviamente = true;
+    
     save();
     abrirHistorial();
     mostrarToast("Trade restablecido", 'exito');
+    
+    // Opcional: Preguntar si quiere editar inmediatamente
+    if (confirm("¿Deseas editar este trade ahora?")) {
+        abrirForm(idx);
+    }
 }
 
 function eliminarUno(id) {
@@ -614,12 +622,16 @@ if ("serviceWorker" in navigator) {
 }
 
 // ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
-// Ejecutar esta función UNA VEZ después de actualizar el código
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
     trades.forEach(t => {
         if (t.archivadoPreviamente === undefined) {
-            t.archivadoPreviamente = t.archivado; // Si ya estaba archivado, ya fue a Sheets
+            t.archivadoPreviamente = t.archivado;
+            cambioRealizado = true;
+        }
+        // Asegurar que todos los trades tengan un ID único
+        if (!t.id) {
+            t.id = Date.now() + Math.floor(Math.random() * 1000);
             cambioRealizado = true;
         }
     });
