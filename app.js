@@ -1,4 +1,4 @@
-// URL para Google Sheets (¡ACTUALIZA ESTA URL DESPUÉS DEL NUEVO DESPLIEGUE DEL SCRIPT!)
+// URL para Google Sheets (¡ACTUALIZA ESTA URL DESPUÉS DE CADA NUEVO DESPLIEGUE DEL SCRIPT!)
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -234,8 +234,12 @@ function guardarPar() {
     if (!sugerencias.includes(nom)) sugerencias.push(nom);
 
     const ahora = new Date();
+    
+    // CRÍTICO: ID único basado en timestamp (esto evita duplicados)
+    const idUnico = Date.now(); // Genera un número único como 1739619856331
+    
     const nuevoTrade = {
-        id: Date.now(),  // ID único basado en timestamp
+        id: idUnico,  // Usar Date.now() para ID único
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -243,7 +247,7 @@ function guardarPar() {
         datos: {
             fecha: ahora.toISOString().split("T")[0],
             hora: ahora.getHours().toString().padStart(2, "0") + ":" +
-                ahora.getMinutes().toString().padStart(2, "0")
+                  ahora.getMinutes().toString().padStart(2, "0")
         }
     };
 
@@ -253,7 +257,7 @@ function guardarPar() {
     updateDatalist();
     showHome();
     abrirForm(trades.length - 1);
-    mostrarToast("✅ Nuevo par creado", 'exito');
+    mostrarToast("✅ Nuevo par creado con ID único: " + idUnico, 'exito');
 }
 
 function showHome() {
@@ -372,11 +376,11 @@ async function archivarPar() {
     
     // Determinar si es una actualización
     const trade = trades[currentIdx];
-    const esUnaActualizacion = trade.archivadoPreviamente === true;
+    const esUnaActualizacion = trade.archivadoPreviamente === true; // Ya fue archivado antes
     
     trade.datos.archivedAt = Date.now();
     trade.archivado = true;
-    trade.archivadoPreviamente = true;
+    trade.archivadoPreviamente = true; // Marcar como ya archivado
     save();
 
     try {
@@ -402,9 +406,12 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // Agregar bandera si es una actualización
+        // CRÍTICO: Enviar bandera de actualización si corresponde
         if (esUnaActualizacion) {
-            tradeData.accion = 'actualizar';
+            tradeData.accion = 'actualizar'; // Esta línea es CLAVE
+            console.log('📤 Enviando trade para ACTUALIZAR con ID:', trade.id);
+        } else {
+            console.log('📤 Enviando NUEVO trade con ID:', trade.id);
         }
 
         const params = new URLSearchParams();
@@ -551,19 +558,17 @@ function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) return;
     
-    // Solo cambiar el estado de archivado, mantener archivadoPreviamente como true
+    // Solo cambiar el estado de archivado
     trades[idx].archivado = false;
-    // IMPORTANTE: Mantener archivadoPreviamente como true porque ya fue enviado a Google Sheets
+    // IMPORTANTE: Mantener archivadoPreviamente como TRUE porque ya fue enviado a Google Sheets
     trades[idx].archivadoPreviamente = true;
     
     save();
     abrirHistorial();
-    mostrarToast("Trade restablecido", 'exito');
+    mostrarToast("Trade restablecido. Ahora puedes editarlo.", 'exito');
     
-    // Opcional: Preguntar si quiere editar inmediatamente
-    if (confirm("¿Deseas editar este trade ahora?")) {
-        abrirForm(idx);
-    }
+    // Abrir el form para editar inmediatamente
+    abrirForm(idx);
 }
 
 function eliminarUno(id) {
@@ -601,6 +606,29 @@ function volverHistorial() {
     abrirHistorial();
 }
 
+// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
+function migrarTradesAntiguos() {
+    let cambioRealizado = false;
+    trades.forEach(t => {
+        if (t.archivadoPreviamente === undefined) {
+            t.archivadoPreviamente = t.archivado;
+            cambioRealizado = true;
+        }
+        // Asegurar que todos los trades tengan un ID único
+        if (!t.id || t.id === 0) {
+            t.id = Date.now() + Math.floor(Math.random() * 1000);
+            cambioRealizado = true;
+        }
+    });
+    if (cambioRealizado) {
+        save();
+        console.log("✅ Migración de trades antiguos completada.");
+    }
+}
+
+// Ejecutar automáticamente al cargar la página
+migrarTradesAntiguos();
+
 // ==================== FUNCIONES GLOBALES (TODAS) ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
@@ -620,26 +648,3 @@ if ("serviceWorker" in navigator) {
             .catch(err => console.log("SW error:", err));
     });
 }
-
-// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
-function migrarTradesAntiguos() {
-    let cambioRealizado = false;
-    trades.forEach(t => {
-        if (t.archivadoPreviamente === undefined) {
-            t.archivadoPreviamente = t.archivado;
-            cambioRealizado = true;
-        }
-        // Asegurar que todos los trades tengan un ID único
-        if (!t.id) {
-            t.id = Date.now() + Math.floor(Math.random() * 1000);
-            cambioRealizado = true;
-        }
-    });
-    if (cambioRealizado) {
-        save();
-        console.log("✅ Migración de trades antiguos completada.");
-    }
-}
-
-// Ejecutar automáticamente al cargar la página
-migrarTradesAntiguos();
