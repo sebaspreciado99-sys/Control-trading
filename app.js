@@ -1,650 +1,459 @@
-// URL para Google Sheets (¡ACTUALIZA ESTA URL DESPUÉS DE CADA NUEVO DESPLIEGUE DEL SCRIPT!)
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
-
-let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
-let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
-let currentIdx = null;
-
-const get = id => document.getElementById(id);
-
-// ==================== FUNCIÓN: TOAST ====================
-function mostrarToast(mensaje, tipo = 'exito') {
-    const toastExistente = document.getElementById('appToast');
-    if (toastExistente) toastExistente.remove();
-
-    const toast = document.createElement('div');
-    toast.id = 'appToast';
-    toast.textContent = mensaje;
-    toast.className = tipo === 'error' ? 'error' : '';
-    document.body.appendChild(toast);
-
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
+function doPost(e) {
+  return doGet(e);
 }
 
-// ==================== FUNCIÓN: EXPORTAR BACKUP ====================
-function exportarBackup() {
-    try {
-        const datos = {
-            fechaBackup: new Date().toISOString(),
-            versionApp: 'trading_v5_pro',
-            trades: trades,
-            sugerencias: sugerencias
-        };
-
-        const datosStr = JSON.stringify(datos, null, 2);
-        const blob = new Blob([datosStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `backup_trading_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        mostrarToast('📁 Backup exportado correctamente', 'exito');
-    } catch (error) {
-        console.error('Error exportando backup:', error);
-        mostrarToast('❌ Error al exportar backup', 'error');
+function doGet(e) {
+  try {
+    // ==================== 0. DIAGNÓSTICO COMPLETO (INICIO) ====================
+    console.log("🔍 === INICIO DIAGNÓSTICO COMPLETO ===");
+    console.log("📥 Tipo de evento recibido:", typeof e);
+    console.log("📥 Evento completo:", JSON.stringify(e));
+    
+    if (!e) {
+      console.log("❌ NO se recibió NINGÚN evento 'e'");
+      console.log("⚠️ Esto pasa cuando ejecutas manualmente desde el editor");
+      console.log("✅ Cuando tu app.js llame a la URL, SÍ recibirá 'e'");
+      
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: 'diagnostico',
+          message: 'Modo diagnóstico activado',
+          problema: 'No se recibió evento (ejecución manual)',
+          solucion: 'Tu app.js SÍ enviará el evento cuando use la URL'
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
-}
-
-// SESIÓN ACTUAL
-function actualizarSesion() {
-    const el = get("sesionActual");
-    if (!el) return;
-
-    const ahora = new Date();
-    const hora = ahora.getUTCHours();
-
-    let sesion = "Sesión Asia";
-    if (hora >= 7 && hora < 13) sesion = "Sesión Londres";
-    else if (hora >= 13 && hora < 21) sesion = "Sesión New York";
-
-    el.textContent = sesion + " · " + ahora.toTimeString().slice(0, 5);
-}
-
-// DURACIÓN D/H
-function normalizarDuracion() {
-    const dur = get("duracion");
-    if (!dur) return;
-    let v = dur.value.trim().toUpperCase();
-
-    if (v === "") return;
-
-    v = v.replace(/\s+/g, " ");
-
-    if (/^\d+$/.test(v)) {
-        v = `${v}H`;
+    
+    if (!e.parameter) {
+      console.log("⚠️ Se recibió evento PERO sin parámetros 'parameter'");
+      console.log("📤 Parámetros disponibles en 'e':", Object.keys(e));
+      
+      // Intentar obtener parámetros de otras formas
+      if (e.queryString) {
+        console.log("🔗 Query string recibida:", e.queryString);
+        // Parsear manualmente
+        const params = {};
+        e.queryString.split('&').forEach(pair => {
+          const [key, value] = pair.split('=');
+          if (key && value) params[key] = decodeURIComponent(value);
+        });
+        console.log("🔄 Parámetros parseados:", params);
+        e.parameter = params; // Asignar para continuar
+      }
     }
-
-    v = v.replace(/(\d+)D(\d+)H/, "$1D $2H");
-    v = v.replace(/DIAS?/g, "D").replace(/HORAS?/g, "H");
-
-    dur.value = v;
-}
-
-// GUARDAR CAMBIOS (con autosave)
-function guardarCambios(mostrarNotificacion = false) {
-    if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
-
-    const campos = [
-        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
-        "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo"
+    
+    if (e.parameter) {
+      console.log("✅ PARÁMETROS RECIBIDOS CORRECTAMENTE:");
+      console.log("----------------------------------------");
+      for (let key in e.parameter) {
+        console.log(`  ${key}: "${e.parameter[key]}" (tipo: ${typeof e.parameter[key]})`);
+      }
+      console.log("----------------------------------------");
+      
+      // VERIFICACIONES ESPECÍFICAS
+      const tieneID = e.parameter.id !== undefined && e.parameter.id !== '';
+      const tieneAccion = e.parameter.accion !== undefined;
+      const idValido = tieneID && e.parameter.id !== '0' && e.parameter.id !== 0;
+      
+      console.log(`📋 VERIFICACIÓN:`);
+      console.log(`  • ¿Tiene campo 'id'?: ${tieneID ? '✅ SÍ' : '❌ NO'}`);
+      console.log(`  • ¿Tiene campo 'accion'?: ${tieneAccion ? '✅ SÍ' : '❌ NO'}`);
+      console.log(`  • ¿ID es válido (no 0)?: ${idValido ? '✅ SÍ' : '❌ NO'}`);
+      
+      if (!tieneID) {
+        console.log("❌ PROBLEMA CRÍTICO: No se recibió 'id'");
+        console.log("   Esto explica por qué se crean nuevos trades siempre");
+        console.log("   SOLUCIÓN: Revisa que app.js envíe 'id' en los parámetros");
+      }
+      
+      if (tieneID && !idValido) {
+        console.log("❌ PROBLEMA CRÍTICO: ID recibido es 0 o vacío");
+        console.log("   ID recibido:", e.parameter.id);
+        console.log("   SOLUCIÓN: app.js debe generar ID con Date.now()");
+      }
+      
+      if (tieneAccion) {
+        console.log(`  • Valor de 'accion': "${e.parameter.accion}"`);
+        console.log(`  • ¿Es 'actualizar'?: ${e.parameter.accion === 'actualizar' ? '✅ SÍ' : '❌ NO'}`);
+      }
+    }
+    
+    console.log("🔍 === FIN DIAGNÓSTICO ===\n");
+    
+    // Si estamos en modo diagnóstico puro, retornar info
+    if (e.parameter && e.parameter.modo === 'diagnostico') {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: 'diagnostico_completo',
+          timestamp: new Date().toISOString(),
+          parametros_recibidos: e.parameter,
+          advertencias: [
+            !e.parameter.id ? "Falta parámetro 'id'" : null,
+            e.parameter.id === '0' ? "ID es 0 (inválido)" : null,
+            !e.parameter.accion ? "Falta parámetro 'accion'" : null
+          ].filter(w => w !== null)
+        }, null, 2))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // ==================== 1. SI NO HAY PARÁMETROS, SALIR ====================
+    if (!e.parameter || Object.keys(e.parameter).length === 0) {
+      console.error("❌ ERROR: No se recibieron parámetros para procesar");
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: 'error',
+          message: 'No se recibieron datos',
+          diagnostico: 'app.js no está enviando parámetros o hay error en la URL'
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // ==================== 2. CONFIGURACIÓN ====================
+    const spreadsheetId = "15Yl9SxH599rmH54bCJl36WEqb1TbbeWHsHGxg4U2mIA";
+    const sheetName = "Control de comercio";
+    
+    const ss = SpreadsheetApp.openById(spreadsheetId);
+    let sheet = ss.getSheetByName(sheetName);
+    
+    // Crear hoja si no existe
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow([
+        "ID_Trade", "PAR", "FECHA", "HORA", "TIPO", "GATILLO", 
+        "SL", "TP", "RATIO", "MAX RATIO", "RESULTADO", "DURACIÓN", 
+        "DIARIO", "HORARIO", "PORCENTAJE", "R NEGATIVO", "R POSITIVO"
+      ]);
+      
+      const headerRange = sheet.getRange(1, 1, 1, 17);
+      headerRange.setBackground("#0f172a")
+                .setFontColor("#ffffff")
+                .setFontWeight("bold")
+                .setHorizontalAlignment("center");
+      
+      sheet.setFrozenRows(1);
+      sheet.autoResizeColumns(1, 17);
+      
+      return ContentService
+        .createTextOutput("EXITO: Hoja creada inicialmente")
+        .setMimeType(ContentService.MimeType.TEXT);
+    }
+    
+    // ==================== 3. OBTENER Y VALIDAR DATOS ====================
+    const params = e.parameter;
+    
+    // VALIDACIÓN CRÍTICA DEL ID
+    const tradeId = params.id || '';
+    const idValidoParaGuardar = tradeId && tradeId !== '0' && tradeId !== 0 && tradeId.toString().trim() !== '';
+    
+    if (!idValidoParaGuardar) {
+      console.error("❌ ERROR: ID inválido para guardar:", tradeId);
+      console.error("   Esto creará un 0 en la columna A");
+      
+      // Generar un ID de emergencia
+      const idEmergencia = Date.now();
+      console.log("   Usando ID de emergencia:", idEmergencia);
+      
+      // Sobrescribir el ID inválido
+      params.id = idEmergencia;
+    }
+    
+    const esUnaActualizacion = params.accion === 'actualizar';
+    
+    console.log(`🔄 PROCESANDO: ID=${params.id}, Acción=${params.accion || 'nueva'}, Actualización=${esUnaActualizacion}`);
+    
+    // ==================== 4. PREPARAR DATOS ====================
+    const rowData = [
+      params.id,                          // Columna A: ID_Trade
+      params.par || '',                   // Columna B: PAR
+      params.fecha || '',                 // Columna C: FECHA
+      params.hora || '',                  // Columna D: HORA
+      params.tipo || '',                  // Columna E: TIPO
+      params.gatillo || '',               // Columna F: GATILLO
+      params.sl || '',                    // Columna G: SL
+      params.tp || '',                    // Columna H: TP
+      params.ratio || '',                 // Columna I: RATIO
+      params.maxRatio || '',              // Columna J: MAX RATIO
+      params.resultado || '',             // Columna K: RESULTADO
+      params.duracion || '',              // Columna L: DURACIÓN
+      params.diario || '',                // Columna M: DIARIO
+      params.horario || '',               // Columna N: HORARIO
+      params.porcentaje || '',            // Columna O: PORCENTAJE
+      params.rNegativo || '',             // Columna P: R NEGATIVO
+      params.rPositivo || ''              // Columna Q: R POSITIVO
     ];
-
-    campos.forEach(id => {
-        const el = get(id);
-        if (!el) return;
-        trades[currentIdx].datos[id] = el.value;
-    });
-
-    const colorAuto = get("colorAuto");
-    if (colorAuto) trades[currentIdx].color = colorAuto.value;
-
-    save();
-
-    // Indicador de autoguardado
-    if (mostrarNotificacion) {
-        const indicador = document.getElementById('autosaveIndicator');
-        if (indicador) {
-            indicador.textContent = '✓ Guardado';
-            indicador.style.opacity = '1';
-            setTimeout(() => indicador.style.opacity = '0', 1500);
+    
+    // ==================== 5. LÓGICA: BUSCAR O CREAR ====================
+    // INTENTAR ACTUALIZAR SI ES RESTABLECER Y HAY ID VÁLIDO
+    if (esUnaActualizacion && params.id) {
+      console.log(`🔍 BUSCANDO trade existente con ID: ${params.id}`);
+      
+      const lastRow = sheet.getLastRow();
+      
+      if (lastRow > 1) {
+        const idRange = sheet.getRange(2, 1, lastRow - 1, 1);
+        const idValues = idRange.getValues();
+        
+        let filaEncontrada = -1;
+        
+        for (let i = 0; i < idValues.length; i++) {
+          if (idValues[i][0] == params.id) {
+            filaEncontrada = i + 2;
+            console.log(`✅ ENCONTRADO en fila ${filaEncontrada}`);
+            break;
+          }
         }
+        
+        if (filaEncontrada > 0) {
+          const rango = sheet.getRange(filaEncontrada, 1, 1, rowData.length);
+          rango.setValues([rowData]);
+          
+          console.log(`✓ ACTUALIZADO trade en fila ${filaEncontrada}`);
+          
+          return ContentService
+            .createTextOutput(`EXITO: Trade actualizado en fila ${filaEncontrada}`)
+            .setMimeType(ContentService.MimeType.TEXT);
+        } else {
+          console.log(`⚠️ NO ENCONTRADO ID ${params.id}, se creará NUEVO`);
+        }
+      }
     }
-}
-
-function calcularRatio() {
-    const sl = parseFloat(get("sl").value);
-    const tp = parseFloat(get("tp").value);
-
-    if (!isNaN(sl) && !isNaN(tp) && sl > 0 && tp > 0) {
-        const ratio = tp / sl;
-        get("ratio").value = ratio.toFixed(2);
-        if (!get("maxRatio").value) get("maxRatio").value = ratio.toFixed(2);
+    
+    // ==================== 6. CREAR NUEVA FILA ====================
+    console.log(`📝 CREANDO NUEVA FILA para ID: ${params.id}`);
+    
+    const ultimaFila = sheet.getLastRow();
+    const nuevaFila = ultimaFila + 1;
+    
+    const rango = sheet.getRange(nuevaFila, 1, 1, rowData.length);
+    rango.setValues([rowData]);
+    
+    // Formatear
+    if (nuevaFila % 2 === 0) {
+      rango.setBackground("#f8fafc");
     } else {
-        get("ratio").value = "";
+      rango.setBackground("#ffffff");
     }
-
-    guardarCambios();
-}
-
-// INIT
-document.addEventListener("DOMContentLoaded", () => {
-    const slInput = get("sl");
-    const tpInput = get("tp");
-    if (slInput) slInput.addEventListener("input", calcularRatio);
-    if (tpInput) tpInput.addEventListener("input", calcularRatio);
-
-    const camposAutoSave = [
-        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "maxRatio",
-        "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo", "colorAuto"
-    ];
-
-    camposAutoSave.forEach(id => {
-        const el = get(id);
-        if (!el) return;
-        el.addEventListener("change", () => {
-            if (id === "duracion") normalizarDuracion();
-            guardarCambios(true);
-        });
-        if (["text", "number", "url", "date", "time"].includes(el.type)) {
-            el.addEventListener("input", () => {
-                if (id === "duracion") normalizarDuracion();
-                guardarCambios(true);
-            });
-        }
-    });
-
-    // AUTOGUARDADO CADA 5 SEGUNDOS
-    setInterval(() => {
-        if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
-            guardarCambios();
-        }
-    }, 5000);
-
-    updateDatalist();
-    renderColores();
-    showHome();
-    actualizarSesion();
-    setInterval(actualizarSesion, 60000);
-});
-
-function save() {
-    localStorage.setItem("trades_v5_pro", JSON.stringify(trades));
-    localStorage.setItem("sugerencias_v5", JSON.stringify(sugerencias));
-}
-
-function updateDatalist() {
-    const dl = get("misPares");
-    if (!dl) return;
-    dl.innerHTML = "";
-    sugerencias.forEach(s => {
-        const o = document.createElement("option");
-        o.value = s;
-        dl.appendChild(o);
-    });
-}
-
-function renderColores() {
-    const colores = ["#f0b90b", "#f6465d", "#2ebd85", "#3b82f6", "#8b5cf6", "#f97316"];
-    [get("coloresRapidos"), get("coloresRapidosEditar")].forEach(cont => {
-        if (!cont) return;
-        cont.innerHTML = "";
-        colores.forEach(c => {
-            const d = document.createElement("div");
-            d.className = "color-chip";
-            d.style.background = c;
-            d.onclick = () => {
-                if (currentIdx !== null && cont.id === "coloresRapidosEditar") {
-                    trades[currentIdx].color = c;
-                    const colorAuto = get("colorAuto");
-                    if (colorAuto) colorAuto.value = c;
-                    guardarCambios(true);
-                    showHome();
-                } else {
-                    const colorPar = get("colorPar");
-                    if (colorPar) colorPar.value = c;
-                }
-            };
-            cont.appendChild(d);
-        });
-    });
-}
-
-// ==================== FUNCIÓN MODIFICADA: GUARDAR PAR ====================
-function guardarPar() {
-    const inputPar = get("inputPar");
-    const colorPar = get("colorPar");
-    if (!inputPar || !colorPar) return;
-
-    const nom = inputPar.value.trim().toUpperCase();
-    if (!nom) {
-        mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
-        return;
-    }
-    if (!sugerencias.includes(nom)) sugerencias.push(nom);
-
-    const ahora = new Date();
     
-    // CRÍTICO: ID único basado en timestamp (esto evita duplicados)
-    const idUnico = Date.now(); // Genera un número único como 1739619856331
+    if (params.resultado) {
+      const res = params.resultado.toUpperCase();
+      if (res.includes("WIN")) {
+        rango.setBackground("#dcfce7").setFontColor("#14532d");
+      } else if (res.includes("LOSS")) {
+        rango.setBackground("#fee2e2").setFontColor("#7f1d1d");
+      }
+    }
     
-    const nuevoTrade = {
-        id: idUnico,  // Usar Date.now() para ID único
-        nombre: nom,
-        color: colorPar.value,
-        archivado: false,
-        archivadoPreviamente: false,
-        datos: {
-            fecha: ahora.toISOString().split("T")[0],
-            hora: ahora.getHours().toString().padStart(2, "0") + ":" +
-                  ahora.getMinutes().toString().padStart(2, "0")
-        }
-    };
-
-    trades.push(nuevoTrade);
-    inputPar.value = "";
-    save();
-    updateDatalist();
-    showHome();
-    abrirForm(trades.length - 1);
-    mostrarToast("✅ Nuevo par creado con ID único: " + idUnico, 'exito');
+    console.log(`✅ NUEVO trade creado en fila ${nuevaFila} con ID: ${params.id}`);
+    
+    // ==================== 7. RESPUESTA ====================
+    const mensaje = esUnaActualizacion 
+      ? `EXITO: Trade ID ${params.id} no encontrado. Se creó NUEVO en fila ${nuevaFila}` 
+      : `EXITO: Nuevo trade guardado en fila ${nuevaFila}`;
+    
+    return ContentService
+      .createTextOutput(mensaje)
+      .setMimeType(ContentService.MimeType.TEXT);
+      
+  } catch (error) {
+    console.error("❌ ERROR CRÍTICO en doGet:", error);
+    console.error("Stack:", error.stack);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: 'error_critico',
+        message: error.toString(),
+        stack: error.stack
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
-function showHome() {
-    const home = get("home");
-    const operaciones = get("operaciones");
-    const historial = get("historial");
-    const detalle = get("detalle");
-    const btnHistorial = get("btnHistorial");
-    const list = get("listaPares");
-
-    if (home) home.classList.remove("oculto");
-    if (operaciones) operaciones.classList.add("oculto");
-    if (historial) historial.classList.add("oculto");
-    if (detalle) detalle.classList.add("oculto");
-    if (btnHistorial) btnHistorial.style.display = "flex";
-    if (!list) return;
-
-    list.innerHTML = "";
-    const paresActivos = trades.filter(t => !t.archivado);
-
-    if (paresActivos.length === 0) {
-        list.innerHTML = `<div class="card-glass" style="text-align:center; color:var(--subtext);">
-      No hay pares activos. Agrega uno nuevo.
-    </div>`;
-        return;
+// ==================== FUNCIÓN: TESTEAR COMUNICACIÓN ====================
+function testearComunicacionAppJS() {
+  console.log("🧪 TESTEANDO COMUNICACIÓN CON APP.JS");
+  
+  // Simular lo que debería enviar app.js
+  const tests = [
+    {
+      nombre: "Test 1 - Nuevo trade normal",
+      params: {
+        id: Date.now(),
+        par: "EURUSD",
+        fecha: "2024-02-15",
+        hora: "10:30",
+        tipo: "COMPRA",
+        resultado: "WIN"
+      }
+    },
+    {
+      nombre: "Test 2 - Restablecer (actualizar)",
+      params: {
+        id: Date.now() - 1000, // ID diferente
+        accion: "actualizar",
+        par: "EURUSD",
+        fecha: "2024-02-15",
+        hora: "11:45",
+        tipo: "COMPRA",
+        resultado: "WIN ACTUALIZADO"
+      }
+    },
+    {
+      nombre: "Test 3 - ID inválido (0)",
+      params: {
+        id: "0",
+        par: "GBPUSD",
+        fecha: "2024-02-15",
+        resultado: "LOSS"
+      }
     }
-
-    paresActivos.forEach(t => {
-        const d = document.createElement("div");
-        d.className = "par";
-        d.style.borderLeft = `6px solid ${t.color}`;
-        if (currentIdx !== null && trades[currentIdx].id === t.id) {
-            d.classList.add("selected");
-        }
-
-        let info = `<div style="font-size:1.2rem;">${t.nombre}</div>`;
-        if (t.datos.fecha) {
-            info += `<div style="color:var(--subtext); font-weight:400; font-size:0.9rem; margin-top:6px;">`;
-            info += `${t.datos.fecha}`;
-            if (t.datos.resultado) info += ` | ${t.datos.resultado}`;
-            info += `</div>`;
-        }
-
-        d.innerHTML = info;
-        d.addEventListener("click", () => {
-            const idx = trades.findIndex(tr => tr.id === t.id);
-            if (idx !== -1) {
-                abrirForm(idx);
-            }
-        });
-
-        list.appendChild(d);
-    });
-}
-
-function abrirForm(i) {
-    currentIdx = i;
-    const t = trades[i];
-    if (!t) return;
-
-    const tituloPar = get("tituloPar");
-    const colorAuto = get("colorAuto");
-    if (tituloPar) tituloPar.textContent = t.nombre;
-    if (colorAuto) colorAuto.value = t.color || "#f0b90b";
-
-    const campos = [
-        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
-        "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo"
-    ];
-
-    campos.forEach(id => {
-        const el = get(id);
-        if (!el) return;
-        if (t.datos && t.datos[id] !== undefined && t.datos[id] !== null) {
-            el.value = t.datos[id];
-        } else {
-            el.value = "";
-        }
-    });
-
-    normalizarDuracion();
-
-    if (!get("fecha").value) {
-        get("fecha").value = new Date().toISOString().split("T")[0];
-        guardarCambios();
-    }
-
-    if (!get("hora").value) {
-        const ahora = new Date();
-        get("hora").value =
-            ahora.getHours().toString().padStart(2, "0") + ":" +
-            ahora.getMinutes().toString().padStart(2, "0");
-        guardarCambios();
-    }
-
-    const home = get("home");
-    const operaciones = get("operaciones");
-    const btnHistorial = get("btnHistorial");
-    if (home) home.classList.add("oculto");
-    if (operaciones) operaciones.classList.remove("oculto");
-    if (btnHistorial) btnHistorial.style.display = "none";
-
-    calcularRatio();
-}
-
-// ==================== FUNCIÓN MODIFICADA: ARCHIVAR PAR ====================
-async function archivarPar() {
-    if (!get("fecha").value || !get("resultado").value) {
-        mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
-        return;
-    }
-
-    normalizarDuracion();
-    guardarCambios();
+  ];
+  
+  tests.forEach((test, index) => {
+    console.log(`\n🔬 ${test.nombre}:`);
+    console.log("Parámetros:", test.params);
     
-    // Determinar si es una actualización
-    const trade = trades[currentIdx];
-    const esUnaActualizacion = trade.archivadoPreviamente === true; // Ya fue archivado antes
-    
-    trade.datos.archivedAt = Date.now();
-    trade.archivado = true;
-    trade.archivadoPreviamente = true; // Marcar como ya archivado
-    save();
-
+    const eventoSimulado = { parameter: test.params };
     try {
-        const datos = trade.datos;
-
-        const tradeData = {
-            id: trade.id,  // ID único del trade
-            par: trade.nombre || '',
-            fecha: datos.fecha || '',
-            hora: datos.hora || '',
-            tipo: datos.tipo || '',
-            gatillo: datos.gatillo || '',
-            sl: datos.sl || '',
-            tp: datos.tp || '',
-            ratio: datos.ratio || '',
-            maxRatio: datos.maxRatio || '',
-            resultado: datos.resultado || '',
-            duracion: datos.duracion || '',
-            diario: datos.diario || '',
-            horario: datos.horario || '',
-            porcentaje: datos.porcentaje || '',
-            rNegativo: datos.rNegativo || '',
-            rPositivo: datos.rPositivo || ''
-        };
-        
-        // CRÍTICO: Enviar bandera de actualización si corresponde
-        if (esUnaActualizacion) {
-            tradeData.accion = 'actualizar'; // Esta línea es CLAVE
-            console.log('📤 Enviando trade para ACTUALIZAR con ID:', trade.id);
-        } else {
-            console.log('📤 Enviando NUEVO trade con ID:', trade.id);
-        }
-
-        const params = new URLSearchParams();
-        Object.keys(tradeData).forEach(key => {
-            if (tradeData[key] !== undefined && tradeData[key] !== null) {
-                params.append(key, tradeData[key]);
-            }
-        });
-
-        await fetch(`${URL_SHEETS}?${params.toString()}`, {
-            method: 'POST',
-            mode: 'no-cors'
-        });
-
-        const mensaje = esUnaActualizacion 
-            ? "✅ Trade ACTUALIZADO en Google Sheets" 
-            : "✅ NUEVO Trade archivado en Google Sheets";
-        mostrarToast(mensaje, 'exito');
-        
+      const resultado = doGet(eventoSimulado);
+      console.log("Resultado:", resultado.getContent());
     } catch (error) {
-        console.error('Error al enviar a Google Sheets:', error);
-        mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
+      console.error("Error en test:", error);
     }
-
-    volverHome();
+  });
+  
+  return "Tests completados. Revisa logs.";
 }
 
-function limpiarFiltros() {
-    const fNom = get("filtroNombre");
-    const fFecha = get("filtroFecha");
-    if (fNom) fNom.value = "";
-    if (fFecha) fFecha.value = "";
-    abrirHistorial();
-}
-
-function abrirHistorial() {
-    const home = get("home");
-    const historial = get("historial");
-    const detalle = get("detalle");
-    const operaciones = get("operaciones");
-    const btnHistorial = get("btnHistorial");
-    const cont = get("historialContenido");
-
-    if (home) home.classList.add("oculto");
-    if (operaciones) operaciones.classList.add("oculto");
-    if (detalle) detalle.classList.add("oculto");
-    if (historial) historial.classList.remove("oculto");
-    if (btnHistorial) btnHistorial.style.display = "none";
-    if (!cont) return;
-
-    cont.innerHTML = "";
-    const fNom = (get("filtroNombre")?.value || "").toUpperCase();
-    const fFecha = get("filtroFecha")?.value || "";
-
-    const filtrados = trades
-        .map((t, i) => ({ ...t, origIdx: i }))
-        .filter(t => {
-            if (!t.archivado) return false;
-            const matchNom = t.nombre.includes(fNom);
-            const matchFecha = fFecha === "" || (t.datos.fecha === fFecha);
-            return matchNom && matchFecha;
-        })
-        .sort((a, b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
-
-    let n = 0, p = 0;
-    filtrados.forEach(t => {
-        n += parseFloat(t.datos.rNegativo || 0);
-        p += parseFloat(t.datos.rPositivo || 0);
-    });
-
-    const resumen = get("resumenGlobal");
-    if (resumen) {
-        resumen.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
-      <span style="color:#ef4444; font-weight:700;">R- ${n.toFixed(2)}</span>
-      <span style="color:#10b981; font-weight:700;">R+ ${p.toFixed(2)}</span>
-      <b style="color:#f0b90b;">NETO ${(p - n).toFixed(2)} R</b>
-    </div>`;
-    }
-
-    filtrados.forEach(t => {
-        const statusClass = t.datos.resultado?.toUpperCase().includes("WIN")
-            ? "win"
-            : t.datos.resultado?.toUpperCase().includes("LOSS")
-                ? "loss"
-                : "";
-
-        const d = document.createElement("div");
-        d.className = "historial-item";
-        d.innerHTML = `
-      <input type="checkbox" class="sel-trade" data-id="${t.id}" style="width:18px; margin-right:15px;">
-      <div class="historial-info" style="border-left:4px solid ${t.color}; padding-left: 10px; flex: 1;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <b>${t.nombre}</b>
-          <span class="badge ${statusClass}">${t.datos.resultado || "S/R"}</span>
-        </div>
-        <small style="color:var(--subtext);">${t.datos.fecha || "---"} | ${t.datos.tipo || ""} | Ratio: ${t.datos.ratio || "--"}</small>
-      </div>
-      <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">↩</button>
-    `;
-        d.querySelector(".historial-info").onclick = () => verDetalle(t.origIdx);
-        cont.appendChild(d);
-    });
-}
-
-function verDetalle(i) {
-    const historial = get("historial");
-    const detalle = get("detalle");
-    if (historial) historial.classList.add("oculto");
-    if (detalle) detalle.classList.remove("oculto");
-
-    const t = trades[i];
-    if (!t) return;
-
-    get("detalleTitulo").textContent = t.nombre;
-    let html = `<div class="card-glass" style="font-size:14px;">`;
-
-    html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.5); padding:8px 0; margin-bottom: 8px;">
-    <span style="color:var(--subtext)">COLOR</span>
-    <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
-  </div>`;
-
-    for (const key in t.datos) {
-        if (key === "archivedAt") continue;
-        let val = t.datos[key];
-        if (key.includes("diario") || key.includes("horario")) {
-            val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
-        }
-        html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
-      <span style="color:var(--subtext)">${key.toUpperCase()}</span>
-      <span>${val || "---"}</span>
-    </div>`;
-    }
-
-    html += `
-    <button onclick="eliminarUno(${t.id})" class="btn-danger premium" style="width:100%; margin-top:18px;">
-      Eliminar Permanente
-    </button>
-  </div>`;
-    get("detalleContenido").innerHTML = html;
-}
-
-// ==================== FUNCIÓN MODIFICADA: RESTABLECER ====================
-function restablecer(id) {
-    const idx = trades.findIndex(t => t.id === id);
-    if (idx === -1) return;
+// ==================== FUNCIÓN: LIMPIAR Y VER HOJA ====================
+function limpiarYVerHoja() {
+  try {
+    const ss = SpreadsheetApp.openById("15Yl9SxH599rmH54bCJl36WEqb1TbbeWHsHGxg4U2mIA");
+    const sheet = ss.getSheetByName("Control de comercio");
     
-    // Solo cambiar el estado de archivado
-    trades[idx].archivado = false;
-    // IMPORTANTE: Mantener archivadoPreviamente como TRUE porque ya fue enviado a Google Sheets
-    trades[idx].archivadoPreviamente = true;
+    if (!sheet) return "Hoja no existe";
     
-    save();
-    abrirHistorial();
-    mostrarToast("Trade restablecido. Ahora puedes editarlo.", 'exito');
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
     
-    // Abrir el form para editar inmediatamente
-    abrirForm(idx);
-}
-
-function eliminarUno(id) {
-    if (!confirm("¿Estás seguro de eliminar permanentemente este trade?")) return;
-    trades = trades.filter(t => t.id !== id);
-    save();
-    volverHistorial();
-    mostrarToast("Trade eliminado", 'exito');
-}
-
-function eliminarSeleccionados() {
-    const sels = document.querySelectorAll(".sel-trade:checked");
-    if (sels.length === 0) {
-        mostrarToast("No hay trades seleccionados", 'error');
-        return;
-    }
-    if (!confirm(`¿Estás seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
-
-    const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
-    trades = trades.filter(t => !ids.includes(t.id));
-    save();
-    abrirHistorial();
-    mostrarToast(`${sels.length} trades eliminados`, 'exito');
-}
-
-function volverHome() {
-    if (currentIdx !== null) guardarCambios();
-    currentIdx = null;
-    showHome();
-}
-
-function volverHistorial() {
-    const detalle = get("detalle");
-    if (detalle) detalle.classList.add("oculto");
-    abrirHistorial();
-}
-
-// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
-function migrarTradesAntiguos() {
-    let cambioRealizado = false;
-    trades.forEach(t => {
-        if (t.archivadoPreviamente === undefined) {
-            t.archivadoPreviamente = t.archivado;
-            cambioRealizado = true;
+    let info = "📊 ESTADO ACTUAL DE LA HOJA:\n";
+    info += `Filas: ${lastRow}, Columnas: ${lastCol}\n\n`;
+    
+    // Ver encabezados
+    const headers = sheet.getRange(1, 1, 1, Math.min(lastCol, 17)).getValues()[0];
+    info += "Encabezados: " + headers.join(", ") + "\n\n";
+    
+    // Ver primeros datos
+    if (lastRow > 1) {
+      const sampleRows = Math.min(lastRow, 6);
+      const data = sheet.getRange(1, 1, sampleRows, Math.min(lastCol, 5)).getValues();
+      
+      info += "Primeras filas:\n";
+      data.forEach((row, i) => {
+        info += `Fila ${i+1}: ${row.slice(0, 3).join(" | ")}...\n`;
+      });
+      
+      // Ver IDs en columna A
+      info += "\n🔍 IDs en columna A:\n";
+      const ids = sheet.getRange(2, 1, lastRow-1, 1).getValues();
+      const idsUnicos = new Set();
+      const idsProblema = [];
+      
+      ids.forEach((idCell, index) => {
+        const id = idCell[0];
+        if (!id || id === 0 || id === '0') {
+          idsProblema.push(`Fila ${index+2}: ${id}`);
+        } else if (idsUnicos.has(id)) {
+          idsProblema.push(`Fila ${index+2}: ${id} (DUPLICADO)`);
+        } else {
+          idsUnicos.add(id);
         }
-        // Asegurar que todos los trades tengan un ID único
-        if (!t.id || t.id === 0) {
-            t.id = Date.now() + Math.floor(Math.random() * 1000);
-            cambioRealizado = true;
-        }
-    });
-    if (cambioRealizado) {
-        save();
-        console.log("✅ Migración de trades antiguos completada.");
+      });
+      
+      info += `• IDs únicos: ${idsUnicos.size}\n`;
+      info += `• IDs con problemas: ${idsProblema.length}\n`;
+      
+      if (idsProblema.length > 0) {
+        info += "\n❌ PROBLEMAS ENCONTRADOS:\n";
+        idsProblema.slice(0, 5).forEach(p => info += p + "\n");
+        if (idsProblema.length > 5) info += `... y ${idsProblema.length-5} más\n`;
+      }
     }
+    
+    console.log(info);
+    return info;
+    
+  } catch (error) {
+    return "Error: " + error.toString();
+  }
 }
 
-// Ejecutar automáticamente al cargar la página
-migrarTradesAntiguos();
+// ==================== FUNCIÓN: VER URL DE DESPLIEGUE ====================
+function verUrlDespliegue() {
+  try {
+    // Obtener URL del despliegue web actual
+    const projectId = ScriptApp.getScriptId();
+    const url = `https://script.google.com/macros/s/${projectId}/exec`;
+    
+    console.log("🌐 URL ACTUAL DE LA APLICACIÓN WEB:");
+    console.log(url);
+    console.log("\n📋 CÓMO USAR:");
+    console.log("1. Copia esta URL");
+    console.log("2. Pégala en app.js como URL_SHEETS");
+    console.log("3. Asegúrate de que el despliegue sea público");
+    
+    return url;
+  } catch (error) {
+    return "Error obteniendo URL: " + error;
+  }
+}
 
-// ==================== FUNCIONES GLOBALES (TODAS) ====================
-window.guardarPar = guardarPar;
-window.archivarPar = archivarPar;
-window.volverHome = volverHome;
-window.abrirHistorial = abrirHistorial;
-window.limpiarFiltros = limpiarFiltros;
-window.eliminarSeleccionados = eliminarSeleccionados;
-window.volverHistorial = volverHistorial;
-window.restablecer = restablecer;
-window.eliminarUno = eliminarUno;
-window.exportarBackup = exportarBackup;
+// ==================== MENÚ ====================
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('🚀 DIAGNÓSTICO Trading')
+    .addItem('🔍 Ver estado hoja', 'limpiarYVerHoja')
+    .addItem('🧪 Testear comunicación', 'testearComunicacionAppJS')
+    .addItem('🌐 Ver URL actual', 'verUrlDespliegue')
+    .addSeparator()
+    .addItem('📋 Ayuda', 'mostrarAyudaCompleta')
+    .addToUi();
+}
 
-// Registro del Service Worker para PWA
-if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js")
-            .catch(err => console.log("SW error:", err));
-    });
+function mostrarAyudaCompleta() {
+  const ayuda = `🚀 DIAGNÓSTICO COMPLETO - PASOS:
+
+1. EJECUTAR DESDE EDITOR:
+   • Selecciona "testearComunicacionAppJS"
+   • Haz clic en Ejecutar
+   • Revisa los LOGS (Ver > Logs)
+
+2. VER QUÉ PASA CON APP.JS:
+   • Ejecuta "Ver URL actual"
+   • Copia esa URL
+   • En app.js, actualiza URL_SHEETS
+
+3. PROBAR DESDE TU APP:
+   • Crea un trade en tu app web
+   • Archívalo
+   • Vuelve a EDITOR > Ver > Logs
+   • Debes ver los parámetros que llegan
+
+4. VERIFICAR PROBLEMAS:
+   • Si 'id' es 0 o vacío → Problema en app.js
+   • Si no llega 'accion' → No se envía al restablecer
+   • Si se crea nuevo siempre → ID no se encuentra en hoja
+
+SOLUCIONES COMUNES:
+• app.js debe usar: id: Date.now()
+• Al restablecer, enviar: accion: 'actualizar'
+• Google Sheets debe tener IDs únicos en columna A
+
+CONTACTO:
+Sistema en diagnóstico. Revisa logs después de cada acción.`;
+  
+  SpreadsheetApp.getUi().alert('Ayuda Diagnóstico', ayuda, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function onInstall() {
+  onOpen();
 }
