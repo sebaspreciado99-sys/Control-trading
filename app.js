@@ -1,4 +1,5 @@
-// URL para Google Sheets (ACTUALIZA CON TU URL)
+// ==================== CONFIGURACIÓN ====================
+// ¡¡¡IMPORTANTE!!! Actualiza esta URL con la que te di
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -25,156 +26,29 @@ function mostrarToast(mensaje, tipo = 'exito') {
     }, 4000);
 }
 
-// ==================== FUNCIÓN: EXPORTAR BACKUP ====================
-function exportarBackup() {
-    try {
-        const datos = {
-            fechaBackup: new Date().toISOString(),
-            versionApp: 'trading_v5_pro',
-            trades: trades,
-            sugerencias: sugerencias
-        };
-
-        const datosStr = JSON.stringify(datos, null, 2);
-        const blob = new Blob([datosStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `backup_trading_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        mostrarToast('📁 Backup exportado correctamente', 'exito');
-    } catch (error) {
-        console.error('Error exportando backup:', error);
-        mostrarToast('❌ Error al exportar backup', 'error');
-    }
+// ==================== FUNCIÓN: DIAGNOSTICAR ====================
+function diagnosticarEnvio(datos, esActualizacion) {
+    console.group('🔍 DIAGNÓSTICO APP.JS');
+    console.log('Enviando datos:', datos);
+    console.log('¿Es actualización?:', esActualizacion);
+    console.log('ID a enviar:', datos.id);
+    console.groupEnd();
 }
 
-// SESIÓN ACTUAL
-function actualizarSesion() {
-    const el = get("sesionActual");
-    if (!el) return;
-
-    const ahora = new Date();
-    const hora = ahora.getUTCHours();
-
-    let sesion = "Sesión Asia";
-    if (hora >= 7 && hora < 13) sesion = "Sesión Londres";
-    else if (hora >= 13 && hora < 21) sesion = "Sesión New York";
-
-    el.textContent = sesion + " · " + ahora.toTimeString().slice(0, 5);
-}
-
-// DURACIÓN D/H
-function normalizarDuracion() {
-    const dur = get("duracion");
-    if (!dur) return;
-    let v = dur.value.trim().toUpperCase();
-
-    if (v === "") return;
-
-    v = v.replace(/\s+/g, " ");
-
-    if (/^\d+$/.test(v)) {
-        v = `${v}H`;
-    }
-
-    v = v.replace(/(\d+)D(\d+)H/, "$1D $2H");
-    v = v.replace(/DIAS?/g, "D").replace(/HORAS?/g, "H");
-
-    dur.value = v;
-}
-
-// GUARDAR CAMBIOS (con autosave)
-function guardarCambios(mostrarNotificacion = false) {
-    if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
-
-    const campos = [
-        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
-        "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo"
-    ];
-
-    campos.forEach(id => {
-        const el = get(id);
-        if (!el) return;
-        trades[currentIdx].datos[id] = el.value;
-    });
-
-    const colorAuto = get("colorAuto");
-    if (colorAuto) trades[currentIdx].color = colorAuto.value;
-
-    save();
-
-    if (mostrarNotificacion) {
-        const indicador = document.getElementById('autosaveIndicator');
-        if (indicador) {
-            indicador.textContent = '✓ Guardado';
-            indicador.style.opacity = '1';
-            setTimeout(() => indicador.style.opacity = '0', 1500);
-        }
-    }
-}
-
-function calcularRatio() {
-    const sl = parseFloat(get("sl").value);
-    const tp = parseFloat(get("tp").value);
-
-    if (!isNaN(sl) && !isNaN(tp) && sl > 0 && tp > 0) {
-        const ratio = tp / sl;
-        get("ratio").value = ratio.toFixed(2);
-        if (!get("maxRatio").value) get("maxRatio").value = ratio.toFixed(2);
-    } else {
-        get("ratio").value = "";
-    }
-
-    guardarCambios();
-}
-
-// INIT
+// ==================== INICIALIZACIÓN ====================
 document.addEventListener("DOMContentLoaded", () => {
+    // Configurar eventos
     const slInput = get("sl");
     const tpInput = get("tp");
     if (slInput) slInput.addEventListener("input", calcularRatio);
     if (tpInput) tpInput.addEventListener("input", calcularRatio);
 
-    const camposAutoSave = [
-        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "maxRatio",
-        "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo", "colorAuto"
-    ];
-
-    camposAutoSave.forEach(id => {
-        const el = get(id);
-        if (!el) return;
-        el.addEventListener("change", () => {
-            if (id === "duracion") normalizarDuracion();
-            guardarCambios(true);
-        });
-        if (["text", "number", "url", "date", "time"].includes(el.type)) {
-            el.addEventListener("input", () => {
-                if (id === "duracion") normalizarDuracion();
-                guardarCambios(true);
-            });
-        }
-    });
-
-    // AUTOGUARDADO CADA 5 SEGUNDOS
-    setInterval(() => {
-        if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
-            guardarCambios();
-        }
-    }, 5000);
-
+    // Inicializar
     updateDatalist();
     renderColores();
     showHome();
-    actualizarSesion();
-    setInterval(actualizarSesion, 60000);
+    
+    console.log('✅ app.js cargado. URL_SHEETS:', URL_SHEETS);
 });
 
 function save() {
@@ -219,7 +93,7 @@ function renderColores() {
     });
 }
 
-// ==================== FUNCIÓN MODIFICADA: GUARDAR PAR ====================
+// ==================== FUNCIÓN: GUARDAR PAR ====================
 function guardarPar() {
     const inputPar = get("inputPar");
     const colorPar = get("colorPar");
@@ -227,17 +101,16 @@ function guardarPar() {
 
     const nom = inputPar.value.trim().toUpperCase();
     if (!nom) {
-        mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
+        mostrarToast("Ingresa un nombre para el activo", 'error');
         return;
     }
     if (!sugerencias.includes(nom)) sugerencias.push(nom);
 
     const ahora = new Date();
     
-    // ¡IMPORTANTE! Ya NO generamos ID aquí, Google Sheets lo hará
-    // Solo creamos el objeto sin ID, Google Sheets asignará uno consecutivo
+    // IMPORTANTE: Temporalmente 0, Google Sheets asignará el real
     const nuevoTrade = {
-        id: 0, // Temporal, Google Sheets asignará el real
+        id: 0, // Temporal - Google Sheets lo actualizará
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -255,9 +128,93 @@ function guardarPar() {
     updateDatalist();
     showHome();
     abrirForm(trades.length - 1);
-    mostrarToast("✅ Nuevo par creado. Google Sheets asignará ID consecutivo.", 'exito');
+    mostrarToast("✅ Par creado. ID será asignado por Google Sheets.", 'exito');
 }
 
+// ==================== FUNCIÓN: ARCHIVAR PAR ====================
+async function archivarPar() {
+    if (!get("fecha").value || !get("resultado").value) {
+        mostrarToast("Completa Fecha y Resultado antes de archivar", 'error');
+        return;
+    }
+
+    guardarCambios();
+    
+    const trade = trades[currentIdx];
+    const esUnaActualizacion = trade.archivadoPreviamente === true;
+    
+    trade.datos.archivedAt = Date.now();
+    trade.archivado = true;
+    trade.archivadoPreviamente = true;
+    save();
+
+    try {
+        const datos = trade.datos;
+
+        // PREPARAR DATOS PARA ENVIAR
+        const tradeData = {
+            // ¡CRÍTICO! Enviar el ID actual (puede ser 0 para nuevos)
+            id: trade.id,
+            par: trade.nombre || '',
+            fecha: datos.fecha || '',
+            hora: datos.hora || '',
+            tipo: datos.tipo || '',
+            gatillo: datos.gatillo || '',
+            sl: datos.sl || '',
+            tp: datos.tp || '',
+            ratio: datos.ratio || '',
+            maxRatio: datos.maxRatio || '',
+            resultado: datos.resultado || '',
+            duracion: datos.duracion || '',
+            diario: datos.diario || '',
+            horario: datos.horario || '',
+            porcentaje: datos.porcentaje || '',
+            rNegativo: datos.rNegativo || '',
+            rPositivo: datos.rPositivo || ''
+        };
+        
+        // ¡CRÍTICO! Agregar bandera si es restablecimiento
+        if (esUnaActualizacion) {
+            tradeData.accion = 'actualizar';
+            console.log('🚨 ENVIANDO COMO ACTUALIZACIÓN (restablecer)');
+        }
+
+        // Diagnosticar antes de enviar
+        diagnosticarEnvio(tradeData, esUnaActualizacion);
+
+        // Construir URL
+        const params = new URLSearchParams();
+        Object.keys(tradeData).forEach(key => {
+            if (tradeData[key] !== undefined && tradeData[key] !== null) {
+                params.append(key, tradeData[key].toString());
+            }
+        });
+
+        console.log('📤 Enviando a:', `${URL_SHEETS}?${params.toString().substring(0, 80)}...`);
+
+        // Enviar
+        await fetch(`${URL_SHEETS}?${params.toString()}`, {
+            method: 'POST',
+            mode: 'no-cors'
+        });
+
+        // NOTA: No podemos leer la respuesta por 'no-cors'
+        // Google Sheets debería responder con el ID asignado
+        
+        const mensaje = esUnaActualizacion 
+            ? "✅ Trade actualizado en Google Sheets" 
+            : "✅ Nuevo trade archivado en Google Sheets";
+        mostrarToast(mensaje, 'exito');
+        
+    } catch (error) {
+        console.error('Error enviando a Google Sheets:', error);
+        mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
+    }
+
+    volverHome();
+}
+
+// ==================== FUNCIONES DE INTERFAZ ====================
 function showHome() {
     const home = get("home");
     const operaciones = get("operaciones");
@@ -337,19 +294,14 @@ function abrirForm(i) {
         }
     });
 
-    normalizarDuracion();
-
     if (!get("fecha").value) {
         get("fecha").value = new Date().toISOString().split("T")[0];
-        guardarCambios();
     }
-
     if (!get("hora").value) {
         const ahora = new Date();
         get("hora").value =
             ahora.getHours().toString().padStart(2, "0") + ":" +
             ahora.getMinutes().toString().padStart(2, "0");
-        guardarCambios();
     }
 
     const home = get("home");
@@ -358,206 +310,59 @@ function abrirForm(i) {
     if (home) home.classList.add("oculto");
     if (operaciones) operaciones.classList.remove("oculto");
     if (btnHistorial) btnHistorial.style.display = "none";
-
-    calcularRatio();
 }
 
-// ==================== FUNCIÓN MODIFICADA: ARCHIVAR PAR ====================
-async function archivarPar() {
-    if (!get("fecha").value || !get("resultado").value) {
-        mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
-        return;
-    }
+function guardarCambios(mostrarNotificacion = false) {
+    if (currentIdx === null) return;
 
-    normalizarDuracion();
-    guardarCambios();
-    
-    const trade = trades[currentIdx];
-    const esUnaActualizacion = trade.archivadoPreviamente === true;
-    
-    trade.datos.archivedAt = Date.now();
-    trade.archivado = true;
-    trade.archivadoPreviamente = true;
+    const campos = [
+        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
+        "resultado", "duracion", "diario", "horario", "porcentaje",
+        "rNegativo", "rPositivo"
+    ];
+
+    campos.forEach(id => {
+        const el = get(id);
+        if (!el) return;
+        trades[currentIdx].datos[id] = el.value;
+    });
+
+    const colorAuto = get("colorAuto");
+    if (colorAuto) trades[currentIdx].color = colorAuto.value;
+
     save();
 
-    try {
-        const datos = trade.datos;
-
-        const tradeData = {
-            id: trade.id, // Este es el ID asignado por Google Sheets
-            par: trade.nombre || '',
-            fecha: datos.fecha || '',
-            hora: datos.hora || '',
-            tipo: datos.tipo || '',
-            gatillo: datos.gatillo || '',
-            sl: datos.sl || '',
-            tp: datos.tp || '',
-            ratio: datos.ratio || '',
-            maxRatio: datos.maxRatio || '',
-            resultado: datos.resultado || '',
-            duracion: datos.duracion || '',
-            diario: datos.diario || '',
-            horario: datos.horario || '',
-            porcentaje: datos.porcentaje || '',
-            rNegativo: datos.rNegativo || '',
-            rPositivo: datos.rPositivo || ''
-        };
-        
-        // Enviar bandera de actualización si corresponde
-        if (esUnaActualizacion) {
-            tradeData.accion = 'actualizar';
-            console.log(`📤 Enviando ACTUALIZACIÓN del Trade #${trade.id}`);
-        } else {
-            console.log(`📤 Enviando NUEVO Trade (Google Sheets asignará ID)`);
+    if (mostrarNotificacion) {
+        const indicador = document.getElementById('autosaveIndicator');
+        if (indicador) {
+            indicador.textContent = '✓ Guardado';
+            indicador.style.opacity = '1';
+            setTimeout(() => indicador.style.opacity = '0', 1500);
         }
-
-        const params = new URLSearchParams();
-        Object.keys(tradeData).forEach(key => {
-            if (tradeData[key] !== undefined && tradeData[key] !== null) {
-                params.append(key, tradeData[key].toString());
-            }
-        });
-
-        const response = await fetch(`${URL_SHEETS}?${params.toString()}`, {
-            method: 'POST',
-            mode: 'no-cors'
-        });
-
-        // IMPORTANTE: Actualizar el ID local con el que Google Sheets devuelve
-        // (esto se haría si la respuesta contuviera el ID, pero con no-cors no podemos leerla)
-        // Por ahora confiamos en que Google Sheets mantiene el mismo ID
-        
-        const mensaje = esUnaActualizacion 
-            ? `✅ Trade #${trade.id} actualizado en Google Sheets` 
-            : "✅ Nuevo trade archivado en Google Sheets";
-        mostrarToast(mensaje, 'exito');
-        
-    } catch (error) {
-        console.error('Error al enviar a Google Sheets:', error);
-        mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
     }
-
-    volverHome();
 }
 
-function limpiarFiltros() {
-    const fNom = get("filtroNombre");
-    const fFecha = get("filtroFecha");
-    if (fNom) fNom.value = "";
-    if (fFecha) fFecha.value = "";
-    abrirHistorial();
-}
+function calcularRatio() {
+    const sl = parseFloat(get("sl").value);
+    const tp = parseFloat(get("tp").value);
 
-function abrirHistorial() {
-    const home = get("home");
-    const historial = get("historial");
-    const detalle = get("detalle");
-    const operaciones = get("operaciones");
-    const btnHistorial = get("btnHistorial");
-    const cont = get("historialContenido");
-
-    if (home) home.classList.add("oculto");
-    if (operaciones) operaciones.classList.add("oculto");
-    if (detalle) detalle.classList.add("oculto");
-    if (historial) historial.classList.remove("oculto");
-    if (btnHistorial) btnHistorial.style.display = "none";
-    if (!cont) return;
-
-    cont.innerHTML = "";
-    const fNom = (get("filtroNombre")?.value || "").toUpperCase();
-    const fFecha = get("filtroFecha")?.value || "";
-
-    const filtrados = trades
-        .map((t, i) => ({ ...t, origIdx: i }))
-        .filter(t => {
-            if (!t.archivado) return false;
-            const matchNom = t.nombre.includes(fNom);
-            const matchFecha = fFecha === "" || (t.datos.fecha === fFecha);
-            return matchNom && matchFecha;
-        })
-        .sort((a, b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
-
-    let n = 0, p = 0;
-    filtrados.forEach(t => {
-        n += parseFloat(t.datos.rNegativo || 0);
-        p += parseFloat(t.datos.rPositivo || 0);
-    });
-
-    const resumen = get("resumenGlobal");
-    if (resumen) {
-        resumen.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
-      <span style="color:#ef4444; font-weight:700;">R- ${n.toFixed(2)}</span>
-      <span style="color:#10b981; font-weight:700;">R+ ${p.toFixed(2)}</span>
-      <b style="color:#f0b90b;">NETO ${(p - n).toFixed(2)} R</b>
-    </div>`;
+    if (!isNaN(sl) && !isNaN(tp) && sl > 0 && tp > 0) {
+        const ratio = tp / sl;
+        get("ratio").value = ratio.toFixed(2);
+        if (!get("maxRatio").value) get("maxRatio").value = ratio.toFixed(2);
     }
-
-    filtrados.forEach(t => {
-        const statusClass = t.datos.resultado?.toUpperCase().includes("WIN")
-            ? "win"
-            : t.datos.resultado?.toUpperCase().includes("LOSS")
-                ? "loss"
-                : "";
-
-        const d = document.createElement("div");
-        d.className = "historial-item";
-        d.innerHTML = `
-      <input type="checkbox" class="sel-trade" data-id="${t.id}" style="width:18px; margin-right:15px;">
-      <div class="historial-info" style="border-left:4px solid ${t.color}; padding-left: 10px; flex: 1;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <b>${t.nombre}</b>
-          <span class="badge ${statusClass}">${t.datos.resultado || "S/R"}</span>
-        </div>
-        <small style="color:var(--subtext);">${t.datos.fecha || "---"} | ${t.datos.tipo || ""} | Ratio: ${t.datos.ratio || "--"}</small>
-      </div>
-      <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">↩</button>
-    `;
-        d.querySelector(".historial-info").onclick = () => verDetalle(t.origIdx);
-        cont.appendChild(d);
-    });
-}
-
-function verDetalle(i) {
-    const historial = get("historial");
-    const detalle = get("detalle");
-    if (historial) historial.classList.add("oculto");
-    if (detalle) detalle.classList.remove("oculto");
-
-    const t = trades[i];
-    if (!t) return;
-
-    get("detalleTitulo").textContent = t.nombre;
-    let html = `<div class="card-glass" style="font-size:14px;">`;
-
-    html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.5); padding:8px 0; margin-bottom: 8px;">
-    <span style="color:var(--subtext)">COLOR</span>
-    <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
-  </div>`;
-
-    for (const key in t.datos) {
-        if (key === "archivedAt") continue;
-        let val = t.datos[key];
-        if (key.includes("diario") || key.includes("horario")) {
-            val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
-        }
-        html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
-      <span style="color:var(--subtext)">${key.toUpperCase()}</span>
-      <span>${val || "---"}</span>
-    </div>`;
-    }
-
-    html += `
-    <button onclick="eliminarUno(${t.id})" class="btn-danger premium" style="width:100%; margin-top:18px;">
-      Eliminar Permanente
-    </button>
-  </div>`;
-    get("detalleContenido").innerHTML = html;
+    guardarCambios();
 }
 
 // ==================== FUNCIÓN: RESTABLECER ====================
 function restablecer(id) {
+    console.log('↩ Restableciendo trade con ID:', id);
+    
     const idx = trades.findIndex(t => t.id === id);
-    if (idx === -1) return;
+    if (idx === -1) {
+        console.error('Trade no encontrado con ID:', id);
+        return;
+    }
     
     trades[idx].archivado = false;
     trades[idx].archivadoPreviamente = true;
@@ -565,85 +370,47 @@ function restablecer(id) {
     save();
     abrirHistorial();
     mostrarToast(`Trade #${id} restablecido`, 'exito');
-}
-
-function eliminarUno(id) {
-    if (!confirm("¿Estás seguro de eliminar permanentemente este trade?")) return;
-    trades = trades.filter(t => t.id !== id);
-    save();
-    volverHistorial();
-    mostrarToast("Trade eliminado", 'exito');
-}
-
-function eliminarSeleccionados() {
-    const sels = document.querySelectorAll(".sel-trade:checked");
-    if (sels.length === 0) {
-        mostrarToast("No hay trades seleccionados", 'error');
-        return;
-    }
-    if (!confirm(`¿Estás seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
-
-    const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
-    trades = trades.filter(t => !ids.includes(t.id));
-    save();
-    abrirHistorial();
-    mostrarToast(`${sels.length} trades eliminados`, 'exito');
-}
-
-function volverHome() {
-    if (currentIdx !== null) guardarCambios();
-    currentIdx = null;
-    showHome();
-}
-
-function volverHistorial() {
-    const detalle = get("detalle");
-    if (detalle) detalle.classList.add("oculto");
-    abrirHistorial();
-}
-
-// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
-function migrarTradesAntiguos() {
-    let cambioRealizado = false;
     
-    // Primero, limpiar IDs inválidos
-    trades.forEach(t => {
-        if (!t.id || t.id === 0) {
-            // Marcar para que Google Sheets asigne nuevo ID
-            t.id = 0;
-            cambioRealizado = true;
-        }
-    });
-    
-    if (cambioRealizado) {
-        save();
-        console.log("✅ Trades preparados para IDs consecutivos");
-    }
-    
-    return "Los próximos trades tendrán IDs consecutivos (1, 2, 3, ...)";
+    // Abrir para editar
+    abrirForm(idx);
 }
-
-// Ejecutar automáticamente al cargar la página
-document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(migrarTradesAntiguos, 1000);
-});
 
 // ==================== FUNCIONES GLOBALES ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
-window.volverHome = volverHome;
-window.abrirHistorial = abrirHistorial;
-window.limpiarFiltros = limpiarFiltros;
-window.eliminarSeleccionados = eliminarSeleccionados;
-window.volverHistorial = volverHistorial;
+window.volverHome = () => { currentIdx = null; showHome(); };
 window.restablecer = restablecer;
-window.eliminarUno = eliminarUno;
-window.exportarBackup = exportarBackup;
-
-// Registro del Service Worker para PWA
-if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js")
-            .catch(err => console.log("SW error:", err));
+window.abrirHistorial = function() {
+    const home = get("home");
+    const historial = get("historial");
+    const operaciones = get("operaciones");
+    const btnHistorial = get("btnHistorial");
+    
+    if (home) home.classList.add("oculto");
+    if (operaciones) operaciones.classList.add("oculto");
+    if (historial) historial.classList.remove("oculto");
+    if (btnHistorial) btnHistorial.style.display = "none";
+    
+    // Cargar historial
+    const cont = get("historialContenido");
+    if (!cont) return;
+    
+    cont.innerHTML = "";
+    const filtrados = trades.filter(t => t.archivado);
+    
+    filtrados.forEach(t => {
+        const d = document.createElement("div");
+        d.className = "historial-item";
+        d.innerHTML = `
+      <div class="historial-info" style="border-left:4px solid ${t.color}; padding-left: 10px; flex: 1;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <b>${t.nombre}</b>
+          <span>${t.datos.resultado || ""}</span>
+        </div>
+        <small>${t.datos.fecha || ""}</small>
+      </div>
+      <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">↩</button>
+    `;
+        cont.appendChild(d);
     });
-}
+};
