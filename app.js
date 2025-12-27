@@ -1,5 +1,5 @@
 // URL para Google Sheets (ACTUALIZA CON TU URL)
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxOg3znf09ZLUUYMhRi9iibICyBLXM6WBLBLdzNuW9poF1Y8z_whH6yKtAA0iynt1IWUw/exec";
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxdqKDqJ46mH6v4ckctsxjwaMMLm2i4CxexQx655JjWQloGfB8-lbKVTLaxNS4a7qzMnQ/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
