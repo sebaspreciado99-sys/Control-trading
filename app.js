@@ -1,4 +1,4 @@
-// URL para Google Sheets - ACTUALIZA ESTO CON LA NUEVA URL DE GOOGLE SCRIPT
+// URL para Google Sheets (ACTUALIZA CON TU URL)
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxOg3znf09ZLUUYMhRi9iibICyBLXM6WBLBLdzNuW9poF1Y8z_whH6yKtAA0iynt1IWUw/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -110,7 +110,6 @@ function guardarCambios(mostrarNotificacion = false) {
 
     save();
 
-    // Indicador de autoguardado
     if (mostrarNotificacion) {
         const indicador = document.getElementById('autosaveIndicator');
         if (indicador) {
@@ -220,7 +219,7 @@ function renderColores() {
     });
 }
 
-// ==================== FUNCIÓN CORREGIDA: GUARDAR PAR ====================
+// ==================== FUNCIÓN MODIFICADA: GUARDAR PAR ====================
 function guardarPar() {
     const inputPar = get("inputPar");
     const colorPar = get("colorPar");
@@ -235,11 +234,10 @@ function guardarPar() {
 
     const ahora = new Date();
     
-    // ¡¡¡CORRECCIÓN CRÍTICA!!! Generar ID único con Date.now()
-    const idUnico = Date.now(); // Esto genera un número único como 1739645678901
-    
+    // ¡IMPORTANTE! Ya NO generamos ID aquí, Google Sheets lo hará
+    // Solo creamos el objeto sin ID, Google Sheets asignará uno consecutivo
     const nuevoTrade = {
-        id: idUnico,  // ¡USAR el idUnico generado!
+        id: 0, // Temporal, Google Sheets asignará el real
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -257,7 +255,7 @@ function guardarPar() {
     updateDatalist();
     showHome();
     abrirForm(trades.length - 1);
-    mostrarToast(`✅ Nuevo par creado con ID: ${idUnico}`, 'exito');
+    mostrarToast("✅ Nuevo par creado. Google Sheets asignará ID consecutivo.", 'exito');
 }
 
 function showHome() {
@@ -364,7 +362,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
+// ==================== FUNCIÓN MODIFICADA: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -374,7 +372,6 @@ async function archivarPar() {
     normalizarDuracion();
     guardarCambios();
     
-    // Determinar si es una actualización
     const trade = trades[currentIdx];
     const esUnaActualizacion = trade.archivadoPreviamente === true;
     
@@ -386,9 +383,8 @@ async function archivarPar() {
     try {
         const datos = trade.datos;
 
-        // ¡¡¡CORRECCIÓN CRÍTICA!!! Incluir 'accion' cuando sea actualización
         const tradeData = {
-            id: trade.id,
+            id: trade.id, // Este es el ID asignado por Google Sheets
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -407,26 +403,33 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // ¡¡¡AGREGAR ESTA LÍNEA!!! Enviar bandera de actualización
+        // Enviar bandera de actualización si corresponde
         if (esUnaActualizacion) {
             tradeData.accion = 'actualizar';
+            console.log(`📤 Enviando ACTUALIZACIÓN del Trade #${trade.id}`);
+        } else {
+            console.log(`📤 Enviando NUEVO Trade (Google Sheets asignará ID)`);
         }
 
         const params = new URLSearchParams();
         Object.keys(tradeData).forEach(key => {
             if (tradeData[key] !== undefined && tradeData[key] !== null) {
-                params.append(key, tradeData[key]);
+                params.append(key, tradeData[key].toString());
             }
         });
 
-        await fetch(`${URL_SHEETS}?${params.toString()}`, {
+        const response = await fetch(`${URL_SHEETS}?${params.toString()}`, {
             method: 'POST',
             mode: 'no-cors'
         });
 
+        // IMPORTANTE: Actualizar el ID local con el que Google Sheets devuelve
+        // (esto se haría si la respuesta contuviera el ID, pero con no-cors no podemos leerla)
+        // Por ahora confiamos en que Google Sheets mantiene el mismo ID
+        
         const mensaje = esUnaActualizacion 
-            ? "✅ Trade ACTUALIZADO en Google Sheets" 
-            : "✅ NUEVO Trade archivado en Google Sheets";
+            ? `✅ Trade #${trade.id} actualizado en Google Sheets` 
+            : "✅ Nuevo trade archivado en Google Sheets";
         mostrarToast(mensaje, 'exito');
         
     } catch (error) {
@@ -561,7 +564,7 @@ function restablecer(id) {
     
     save();
     abrirHistorial();
-    mostrarToast("Trade restablecido", 'exito');
+    mostrarToast(`Trade #${id} restablecido`, 'exito');
 }
 
 function eliminarUno(id) {
@@ -602,27 +605,30 @@ function volverHistorial() {
 // ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
+    
+    // Primero, limpiar IDs inválidos
     trades.forEach(t => {
-        if (t.archivadoPreviamente === undefined) {
-            t.archivadoPreviamente = t.archivado;
-            cambioRealizado = true;
-        }
-        // Si el ID es inválido, generar uno nuevo
         if (!t.id || t.id === 0) {
-            t.id = Date.now() + Math.floor(Math.random() * 1000);
+            // Marcar para que Google Sheets asigne nuevo ID
+            t.id = 0;
             cambioRealizado = true;
         }
     });
+    
     if (cambioRealizado) {
         save();
-        console.log("✅ Migración de trades antiguos completada.");
+        console.log("✅ Trades preparados para IDs consecutivos");
     }
+    
+    return "Los próximos trades tendrán IDs consecutivos (1, 2, 3, ...)";
 }
 
 // Ejecutar automáticamente al cargar la página
-migrarTradesAntiguos();
+document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(migrarTradesAntiguos, 1000);
+});
 
-// ==================== FUNCIONES GLOBALES (TODAS) ====================
+// ==================== FUNCIONES GLOBALES ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
 window.volverHome = volverHome;
