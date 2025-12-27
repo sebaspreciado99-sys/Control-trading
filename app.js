@@ -1,5 +1,4 @@
-// URL para Google Sheets (¡ACTUALIZA ESTO DESPUÉS DE CADA NUEVO DESPLIEGUE!)
-// OBTÉN LA NUEVA URL ejecutando "Ver URL actual" en Google Sheets > 🚀 DIAGNÓSTICO Trading
+// URL para Google Sheets - ACTUALIZA ESTO CON LA NUEVA URL DE GOOGLE SCRIPT
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -24,29 +23,6 @@ function mostrarToast(mensaje, tipo = 'exito') {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 4000);
-}
-
-// ==================== FUNCIÓN: DIAGNOSTICAR ENVÍO ====================
-function diagnosticarEnvio(tradeData, esActualizacion) {
-    console.group('🔍 DIAGNÓSTICO APP.JS - Datos a enviar');
-    console.log('TradeData completo:', tradeData);
-    console.log('¿Es actualización?:', esActualizacion);
-    console.log('ID a enviar:', tradeData.id);
-    console.log('Tipo de ID:', typeof tradeData.id);
-    console.log('Acción a enviar:', tradeData.accion || 'NO HAY (será nuevo)');
-    
-    // Construir URL para ver
-    const params = new URLSearchParams();
-    Object.keys(tradeData).forEach(key => {
-        if (tradeData[key] !== undefined && tradeData[key] !== null) {
-            params.append(key, tradeData[key]);
-        }
-    });
-    
-    console.log('URL que se enviará:', `${URL_SHEETS}?${params.toString().substring(0, 100)}...`);
-    console.groupEnd();
-    
-    return params;
 }
 
 // ==================== FUNCIÓN: EXPORTAR BACKUP ====================
@@ -134,6 +110,7 @@ function guardarCambios(mostrarNotificacion = false) {
 
     save();
 
+    // Indicador de autoguardado
     if (mostrarNotificacion) {
         const indicador = document.getElementById('autosaveIndicator');
         if (indicador) {
@@ -243,7 +220,7 @@ function renderColores() {
     });
 }
 
-// ==================== FUNCIÓN CRÍTICA: GUARDAR PAR ====================
+// ==================== FUNCIÓN CORREGIDA: GUARDAR PAR ====================
 function guardarPar() {
     const inputPar = get("inputPar");
     const colorPar = get("colorPar");
@@ -258,14 +235,11 @@ function guardarPar() {
 
     const ahora = new Date();
     
-    // ¡¡¡CRÍTICO!!! Esto debe generar un número único
-    const idUnico = Date.now(); // Ejemplo: 1739645678901
+    // ¡¡¡CORRECCIÓN CRÍTICA!!! Generar ID único con Date.now()
+    const idUnico = Date.now(); // Esto genera un número único como 1739645678901
     
-    console.log('🆔 ID generado para nuevo trade:', idUnico);
-    console.log('Tipo de ID:', typeof idUnico);
-
     const nuevoTrade = {
-        id: idUnico,  // ¡DEBE SER NÚMERO!
+        id: idUnico,  // ¡USAR el idUnico generado!
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -390,7 +364,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN CRÍTICA: ARCHIVAR PAR ====================
+// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -404,11 +378,6 @@ async function archivarPar() {
     const trade = trades[currentIdx];
     const esUnaActualizacion = trade.archivadoPreviamente === true;
     
-    console.group('📤 ARCHIVANDO TRADE');
-    console.log('Trade ID:', trade.id);
-    console.log('¿Ya archivado antes?', trade.archivadoPreviamente);
-    console.log('¿Es actualización?', esUnaActualizacion);
-
     trade.datos.archivedAt = Date.now();
     trade.archivado = true;
     trade.archivadoPreviamente = true;
@@ -417,8 +386,9 @@ async function archivarPar() {
     try {
         const datos = trade.datos;
 
+        // ¡¡¡CORRECCIÓN CRÍTICA!!! Incluir 'accion' cuando sea actualización
         const tradeData = {
-            id: trade.id,  // ¡¡¡ESTE ID DEBE SER EL MISMO QUE SE GUARDÓ!!!
+            id: trade.id,
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -437,25 +407,22 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // ¡¡¡CRÍTICO!!! Enviar bandera de actualización si corresponde
+        // ¡¡¡AGREGAR ESTA LÍNEA!!! Enviar bandera de actualización
         if (esUnaActualizacion) {
-            tradeData.accion = 'actualizar'; // ¡ESTA LÍNEA HACE QUE SE EDITE!
-            console.log('🚨 ENVIANDO como ACTUALIZACIÓN (restablecer)');
-        } else {
-            console.log('🚨 ENVIANDO como NUEVO trade');
+            tradeData.accion = 'actualizar';
         }
 
-        // Diagnosticar ANTES de enviar
-        const params = diagnosticarEnvio(tradeData, esUnaActualizacion);
+        const params = new URLSearchParams();
+        Object.keys(tradeData).forEach(key => {
+            if (tradeData[key] !== undefined && tradeData[key] !== null) {
+                params.append(key, tradeData[key]);
+            }
+        });
 
-        // Enviar a Google Sheets
-        const respuesta = await fetch(`${URL_SHEETS}?${params.toString()}`, {
+        await fetch(`${URL_SHEETS}?${params.toString()}`, {
             method: 'POST',
             mode: 'no-cors'
         });
-
-        console.log('✅ Datos enviados a Google Sheets');
-        console.groupEnd();
 
         const mensaje = esUnaActualizacion 
             ? "✅ Trade ACTUALIZADO en Google Sheets" 
@@ -463,7 +430,7 @@ async function archivarPar() {
         mostrarToast(mensaje, 'exito');
         
     } catch (error) {
-        console.error('❌ Error al enviar a Google Sheets:', error);
+        console.error('Error al enviar a Google Sheets:', error);
         mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
     }
 
@@ -586,31 +553,15 @@ function verDetalle(i) {
 
 // ==================== FUNCIÓN: RESTABLECER ====================
 function restablecer(id) {
-    console.group('↩ RESTABLECIENDO TRADE');
     const idx = trades.findIndex(t => t.id === id);
-    console.log('ID a restablecer:', id);
-    console.log('Índice encontrado:', idx);
+    if (idx === -1) return;
     
-    if (idx === -1) {
-        console.error('❌ Trade no encontrado con ID:', id);
-        console.groupEnd();
-        return;
-    }
-    
-    // Solo cambiar el estado de archivado
     trades[idx].archivado = false;
-    // IMPORTANTE: Mantener archivadoPreviamente como TRUE porque ya fue enviado a Google Sheets
     trades[idx].archivadoPreviamente = true;
-    
-    console.log('✅ Trade restablecido. archivadoPreviamente:', trades[idx].archivadoPreviamente);
-    console.groupEnd();
     
     save();
     abrirHistorial();
-    mostrarToast("Trade restablecido. Ahora puedes editarlo.", 'exito');
-    
-    // Abrir el form para editar inmediatamente
-    abrirForm(idx);
+    mostrarToast("Trade restablecido", 'exito');
 }
 
 function eliminarUno(id) {
@@ -651,74 +602,27 @@ function volverHistorial() {
 // ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
-    console.group('🔄 MIGRANDO TRADES ANTIGUOS');
-    
-    trades.forEach((t, i) => {
+    trades.forEach(t => {
         if (t.archivadoPreviamente === undefined) {
             t.archivadoPreviamente = t.archivado;
-            console.log(`Trade ${i}: archivadoPreviamente = ${t.archivado}`);
             cambioRealizado = true;
         }
-        // Asegurar que todos los trades tengan un ID único
+        // Si el ID es inválido, generar uno nuevo
         if (!t.id || t.id === 0) {
-            const nuevoId = Date.now() + i;
-            console.log(`Trade ${i}: ID ${t.id} → ${nuevoId}`);
-            t.id = nuevoId;
+            t.id = Date.now() + Math.floor(Math.random() * 1000);
             cambioRealizado = true;
         }
     });
-    
     if (cambioRealizado) {
         save();
-        console.log('✅ Migración completada');
-    } else {
-        console.log('ℹ️ No se necesitó migración');
+        console.log("✅ Migración de trades antiguos completada.");
     }
-    
-    console.groupEnd();
 }
 
 // Ejecutar automáticamente al cargar la página
 migrarTradesAntiguos();
 
-// ==================== FUNCIÓN: TESTEAR CONEXIÓN ====================
-async function testearConexionGoogleSheets() {
-    console.group('🧪 TESTEANDO CONEXIÓN CON GOOGLE SHEETS');
-    
-    try {
-        // Test simple
-        const testData = {
-            id: Date.now(),
-            par: 'TEST',
-            fecha: new Date().toISOString().split('T')[0],
-            resultado: 'TEST',
-            modo: 'diagnostico'
-        };
-        
-        const params = new URLSearchParams();
-        Object.keys(testData).forEach(key => {
-            params.append(key, testData[key]);
-        });
-        
-        console.log('Enviando test a:', `${URL_SHEETS}?${params.toString()}`);
-        
-        const respuesta = await fetch(`${URL_SHEETS}?${params.toString()}`, {
-            method: 'POST',
-            mode: 'no-cors'
-        });
-        
-        console.log('✅ Test enviado. Revisa logs de Google Apps Script.');
-        mostrarToast('Test enviado. Revisa logs.', 'exito');
-        
-    } catch (error) {
-        console.error('❌ Error en test:', error);
-        mostrarToast('Error en test', 'error');
-    }
-    
-    console.groupEnd();
-}
-
-// ==================== FUNCIONES GLOBALES ====================
+// ==================== FUNCIONES GLOBALES (TODAS) ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
 window.volverHome = volverHome;
@@ -729,7 +633,6 @@ window.volverHistorial = volverHistorial;
 window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
-window.testearConexionGoogleSheets = testearConexionGoogleSheets;
 
 // Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
