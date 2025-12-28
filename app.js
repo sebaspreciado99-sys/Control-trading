@@ -1,580 +1,692 @@
-// ==================== CONFIGURACIÓN INICIAL ====================
-// ¡ACTUALIZA ESTA URL CON LA TUYA!
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
+// URL para Google Sheets - ACTUALIZA ESTO CON LA NUEVA URL DE GOOGLE SCRIPT
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
-// Sistema de trades - Versión simplificada
-let trades = [];
-let sugerencias = [];
-let currentTradeIndex = null; // Índice del trade actualmente abierto
+let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
+let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
+let currentIdx = null;
 
-// Cargar datos al iniciar
-try {
-  const savedTrades = localStorage.getItem("trading_trades");
-  const savedSugerencias = localStorage.getItem("trading_sugerencias");
-  
-  if (savedTrades) {
-    trades = JSON.parse(savedTrades);
-    console.log(`✅ Cargados ${trades.length} trades`);
-  }
-  
-  if (savedSugerencias) {
-    sugerencias = JSON.parse(savedSugerencias);
-  }
-} catch (e) {
-  console.error("Error cargando datos:", e);
-  trades = [];
-  sugerencias = [];
-}
+const get = id => document.getElementById(id);
 
-// ==================== FUNCIONES BÁSICAS ====================
-function $(id) { return document.getElementById(id); }
-function saveToLocal() {
-  localStorage.setItem("trading_trades", JSON.stringify(trades));
-  localStorage.setItem("trading_sugerencias", JSON.stringify(sugerencias));
-}
-
-function mostrarMensaje(texto, esError = false) {
-  const mensaje = document.createElement('div');
-  mensaje.textContent = texto;
-  mensaje.style.cssText = `
-    position: fixed; top: 20px; right: 20px;
-    background: ${esError ? '#ef4444' : '#10b981'};
-    color: white; padding: 12px 20px; border-radius: 6px;
-    z-index: 10000; font-weight: bold; animation: fadeIn 0.3s;
-  `;
-  document.body.appendChild(mensaje);
-  setTimeout(() => mensaje.remove(), 3000);
-}
-
-// ==================== SISTEMA DE IDs MANUAL ====================
-function obtenerSiguienteID() {
-  if (trades.length === 0) return 1;
+// ==================== CONTADOR DE PARES CONSECUTIVOS ====================
+function obtenerSiguienteNumeroPar() {
+  // Buscar el máximo número de par en los trades archivados
+  let maxNumero = 0;
   
-  // Buscar el máximo ID actual
-  const ids = trades.map(t => t.id).filter(id => id && id > 0);
-  if (ids.length === 0) return 1;
-  
-  const maxId = Math.max(...ids);
-  return maxId + 1;
-}
-
-// ==================== FUNCIÓN: CREAR NUEVO PAR ====================
-function crearNuevoPar() {
-  console.group("➕ CREANDO NUEVO PAR");
-  
-  const inputPar = $("inputPar");
-  const colorPar = $("colorPar");
-  
-  if (!inputPar || !colorPar) {
-    console.error("Elementos no encontrados");
-    return;
-  }
-
-  const nombrePar = inputPar.value.trim().toUpperCase();
-  if (!nombrePar) {
-    mostrarMensaje("Ingresa un nombre para el activo", true);
-    return;
-  }
-  
-  // Agregar a sugerencias
-  if (!sugerencias.includes(nombrePar)) {
-    sugerencias.push(nombrePar);
-  }
-
-  // Generar ID MANUALMENTE (1, 2, 3...)
-  const nuevoID = obtenerSiguienteID();
-  
-  const ahora = new Date();
-  
-  // Crear el trade con ID DEFINITIVO
-  const nuevoTrade = {
-    id: nuevoID, // ¡ID DEFINITIVO desde el inicio!
-    nombre: nombrePar,
-    color: colorPar.value || "#f0b90b",
-    archivado: false,
-    datos: {
-      fecha: ahora.toISOString().split("T")[0],
-      hora: ahora.getHours().toString().padStart(2, "0") + ":" +
-            ahora.getMinutes().toString().padStart(2, "0"),
-      creadoEn: Date.now()
-    }
-  };
-
-  console.log("Nuevo trade creado:", nuevoTrade);
-  console.log("ID asignado:", nuevoID);
-  
-  // Agregar a la lista
-  trades.push(nuevoTrade);
-  
-  // Limpiar y actualizar
-  inputPar.value = "";
-  saveToLocal();
-  actualizarSugerencias();
-  mostrarHome();
-  
-  // Abrir este trade para editarlo
-  abrirTradeParaEditar(trades.length - 1);
-  
-  mostrarMensaje(`✅ Par "${nombrePar}" creado (ID: ${nuevoID})`);
-  console.groupEnd();
-}
-
-// ==================== FUNCIÓN: ABRIR TRADE PARA EDITAR ====================
-function abrirTradeParaEditar(indice) {
-  console.group("📝 ABRIENDO TRADE PARA EDITAR");
-  
-  if (indice < 0 || indice >= trades.length) {
-    console.error("Índice inválido:", indice);
-    return;
-  }
-  
-  const trade = trades[indice];
-  console.log("Trade a abrir:", trade);
-  console.log("ID del trade:", trade.id);
-  console.log("Nombre del trade:", trade.nombre);
-  
-  // Guardar índice actual
-  currentTradeIndex = indice;
-  
-  // Actualizar título
-  const titulo = $("tituloPar");
-  if (titulo) {
-    titulo.textContent = trade.nombre;
-    console.log("Título actualizado a:", trade.nombre);
-  }
-  
-  // Actualizar color
-  const colorInput = $("colorAuto");
-  if (colorInput) {
-    colorInput.value = trade.color || "#f0b90b";
-  }
-  
-  // Llenar TODOS los campos del formulario
-  const campos = [
-    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
-    "resultado", "duracion", "diario", "horario", "porcentaje",
-    "rNegativo", "rPositivo"
-  ];
-  
-  campos.forEach(campoId => {
-    const campo = $(campoId);
-    if (campo) {
-      // Usar valor del trade o vacío
-      const valor = trade.datos[campoId];
-      campo.value = valor !== undefined ? valor : "";
-      
-      if (campoId === "fecha" && !valor) {
-        // Fecha por defecto si está vacía
-        campo.value = new Date().toISOString().split("T")[0];
+  trades.forEach(t => {
+    if (t.datos && t.datos.numeroPar && !isNaN(t.datos.numeroPar) && t.archivado) {
+      const num = parseInt(t.datos.numeroPar);
+      if (num > maxNumero) {
+        maxNumero = num;
       }
     }
   });
   
-  // Calcular ratio automáticamente
-  calcularRatioAuto();
-  
-  // Mostrar sección de operaciones
-  const home = $("home");
-  const operaciones = $("operaciones");
-  
-  if (home) home.classList.add("oculto");
-  if (operaciones) operaciones.classList.remove("oculto");
-  
-  // Ocultar botón de historial
-  const btnHistorial = $("btnHistorial");
-  if (btnHistorial) btnHistorial.style.display = "none";
-  
-  console.log("✅ Trade abierto correctamente");
-  console.groupEnd();
+  return maxNumero + 1;
 }
 
-// ==================== FUNCIÓN: GUARDAR CAMBIOS LOCALES ====================
-function guardarCambiosLocales() {
-  if (currentTradeIndex === null || currentTradeIndex >= trades.length) {
-    return;
-  }
-  
-  const trade = trades[currentTradeIndex];
-  console.log("💾 Guardando cambios para trade ID:", trade.id);
-  
-  const campos = [
-    "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
-    "resultado", "duracion", "diario", "horario", "porcentaje",
-    "rNegativo", "rPositivo", "colorAuto"
-  ];
-  
-  campos.forEach(campoId => {
-    const campo = $(campoId);
-    if (campo) {
-      if (campoId === "colorAuto") {
-        trade.color = campo.value;
-      } else {
-        trade.datos[campoId] = campo.value;
-      }
-    }
-  });
-  
-  saveToLocal();
+// ==================== FUNCIÓN: TOAST ====================
+function mostrarToast(mensaje, tipo = 'exito') {
+    const toastExistente = document.getElementById('appToast');
+    if (toastExistente) toastExistente.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'appToast';
+    toast.textContent = mensaje;
+    toast.className = tipo === 'error' ? 'error' : '';
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
 
-// ==================== FUNCIÓN: ARCHIVAR TRADE ====================
-async function archivarTrade() {
-  console.group("📤 ARCHIVANDO TRADE");
-  
-  if (currentTradeIndex === null) {
-    mostrarMensaje("No hay trade seleccionado", true);
-    return;
-  }
-  
-  const trade = trades[currentTradeIndex];
-  console.log("Trade a archivar:", trade);
-  
-  // Validar datos mínimos
-  if (!trade.datos.fecha || !trade.datos.resultado) {
-    mostrarMensaje("Completa Fecha y Resultado antes de archivar", true);
-    return;
-  }
-  
-  // Guardar cambios locales primero
-  guardarCambiosLocales();
-  
-  // Determinar si es restablecimiento (ya fue archivado antes)
-  const esRestablecimiento = trade.archivado === true;
-  
-  // Actualizar estado local
-  trade.archivado = true;
-  trade.datos.archivedAt = Date.now();
-  
-  // Guardar localmente
-  saveToLocal();
-  console.log("Estado actualizado localmente");
-  
-  try {
-    // Preparar datos para Google Sheets
-    const datosParaEnviar = {
-      id: trade.id, // ¡ID CORRECTO!
-      par: trade.nombre || '',
-      fecha: trade.datos.fecha || '',
-      hora: trade.datos.hora || '',
-      tipo: trade.datos.tipo || '',
-      gatillo: trade.datos.gatillo || '',
-      sl: trade.datos.sl || '',
-      tp: trade.datos.tp || '',
-      ratio: trade.datos.ratio || '',
-      maxRatio: trade.datos.maxRatio || '',
-      resultado: trade.datos.resultado || '',
-      duracion: trade.datos.duracion || '',
-      diario: trade.datos.diario || '',
-      horario: trade.datos.horario || '',
-      porcentaje: trade.datos.porcentaje || '',
-      rNegativo: trade.datos.rNegativo || '',
-      rPositivo: trade.datos.rPositivo || ''
-    };
-    
-    // ¡IMPORTANTE! Agregar acción si es restablecimiento
-    if (esRestablecimiento) {
-      datosParaEnviar.accion = 'actualizar';
-      console.log("🚨 ENVIANDO COMO RESTABLECIMIENTO (accion: 'actualizar')");
-    } else {
-      console.log("🚨 ENVIANDO COMO NUEVO TRADE");
+// ==================== FUNCIÓN: EXPORTAR BACKUP ====================
+function exportarBackup() {
+    try {
+        const datos = {
+            fechaBackup: new Date().toISOString(),
+            versionApp: 'trading_v5_pro',
+            trades: trades,
+            sugerencias: sugerencias
+        };
+
+        const datosStr = JSON.stringify(datos, null, 2);
+        const blob = new Blob([datosStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_trading_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        mostrarToast('📁 Backup exportado correctamente', 'exito');
+    } catch (error) {
+        console.error('Error exportando backup:', error);
+        mostrarToast('❌ Error al exportar backup', 'error');
     }
-    
-    // Mostrar en consola
-    console.log("📤 Enviando a Google Sheets:", datosParaEnviar);
-    
-    // Construir URL
-    const params = new URLSearchParams();
-    Object.keys(datosParaEnviar).forEach(key => {
-      if (datosParaEnviar[key] !== undefined && datosParaEnviar[key] !== null) {
-        params.append(key, datosParaEnviar[key].toString());
-      }
+}
+
+// SESIÓN ACTUAL
+function actualizarSesion() {
+    const el = get("sesionActual");
+    if (!el) return;
+
+    const ahora = new Date();
+    const hora = ahora.getUTCHours();
+
+    let sesion = "Sesión Asia";
+    if (hora >= 7 && hora < 13) sesion = "Sesión Londres";
+    else if (hora >= 13 && hora < 21) sesion = "Sesión New York";
+
+    el.textContent = sesion + " · " + ahora.toTimeString().slice(0, 5);
+}
+
+// DURACIÓN D/H
+function normalizarDuracion() {
+    const dur = get("duracion");
+    if (!dur) return;
+    let v = dur.value.trim().toUpperCase();
+
+    if (v === "") return;
+
+    v = v.replace(/\s+/g, " ");
+
+    if (/^\d+$/.test(v)) {
+        v = `${v}H`;
+    }
+
+    v = v.replace(/(\d+)D(\d+)H/, "$1D $2H");
+    v = v.replace(/DIAS?/g, "D").replace(/HORAS?/g, "H");
+
+    dur.value = v;
+}
+
+// GUARDAR CAMBIOS (con autosave)
+function guardarCambios(mostrarNotificacion = false) {
+    if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
+
+    const campos = [
+        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
+        "resultado", "duracion", "diario", "horario", "porcentaje",
+        "rNegativo", "rPositivo"
+    ];
+
+    campos.forEach(id => {
+        const el = get(id);
+        if (!el) return;
+        trades[currentIdx].datos[id] = el.value;
     });
-    
-    const urlCompleta = `${URL_SHEETS}?${params.toString()}`;
-    console.log("URL:", urlCompleta.substring(0, 80) + "...");
-    
-    // Enviar
-    await fetch(urlCompleta, { method: 'POST', mode: 'no-cors' });
-    
-    console.log("✅ Datos enviados a Google Sheets");
-    
-    // Mensaje de éxito
-    if (esRestablecimiento) {
-      mostrarMensaje(`✅ Trade #${trade.id} actualizado en Google Sheets`);
+
+    const colorAuto = get("colorAuto");
+    if (colorAuto) trades[currentIdx].color = colorAuto.value;
+
+    save();
+
+    // Indicador de autoguardado
+    if (mostrarNotificacion) {
+        const indicador = document.getElementById('autosaveIndicator');
+        if (indicador) {
+            indicador.textContent = '✓ Guardado';
+            indicador.style.opacity = '1';
+            setTimeout(() => indicador.style.opacity = '0', 1500);
+        }
+    }
+}
+
+function calcularRatio() {
+    const sl = parseFloat(get("sl").value);
+    const tp = parseFloat(get("tp").value);
+
+    if (!isNaN(sl) && !isNaN(tp) && sl > 0 && tp > 0) {
+        const ratio = tp / sl;
+        get("ratio").value = ratio.toFixed(2);
+        if (!get("maxRatio").value) get("maxRatio").value = ratio.toFixed(2);
     } else {
-      mostrarMensaje(`✅ Trade #${trade.id} archivado en Google Sheets`);
+        get("ratio").value = "";
     }
-    
-  } catch (error) {
-    console.error("❌ Error enviando a Google Sheets:", error);
-    mostrarMensaje("✅ Trade archivado (solo localmente)");
-  }
-  
-  // Volver al inicio
-  mostrarHome();
-  console.groupEnd();
+
+    guardarCambios();
 }
 
-// ==================== FUNCIÓN: RESTABLECER TRADE ====================
-function restablecerTrade(id) {
-  console.group("↩ RESTABLECIENDO TRADE");
-  console.log("ID a restablecer:", id);
-  
-  // Buscar el trade por ID
-  const indice = trades.findIndex(t => t.id === id);
-  console.log("Índice encontrado:", indice);
-  
-  if (indice === -1) {
-    console.error("❌ Trade no encontrado con ID:", id);
-    mostrarMensaje("Trade no encontrado", true);
-    return;
-  }
-  
-  // Restablecer (des-archivar)
-  trades[indice].archivado = false;
-  
-  // Guardar
-  saveToLocal();
-  console.log("✅ Trade restablecido localmente");
-  
-  // Actualizar interfaz
-  mostrarHistorial();
-  mostrarMensaje(`✅ Trade #${id} restablecido`);
-  
-  // Abrir para editar
-  setTimeout(() => abrirTradeParaEditar(indice), 300);
-  
-  console.groupEnd();
-}
-
-// ==================== INTERFAZ DE USUARIO ====================
-function mostrarHome() {
-  currentTradeIndex = null;
-  
-  // Ocultar todas las secciones
-  ["operaciones", "historial", "detalle"].forEach(seccion => {
-    const el = $(seccion);
-    if (el) el.classList.add("oculto");
-  });
-  
-  // Mostrar home
-  const home = $("home");
-  if (home) {
-    home.classList.remove("oculto");
-  }
-  
-  // Mostrar botón de historial
-  const btnHistorial = $("btnHistorial");
-  if (btnHistorial) {
-    btnHistorial.style.display = "flex";
-  }
-  
-  // Cargar lista de pares activos
-  cargarListaParesActivos();
-}
-
-function cargarListaParesActivos() {
-  const lista = $("listaPares");
-  if (!lista) return;
-  
-  const activos = trades.filter(t => !t.archivado);
-  
-  lista.innerHTML = "";
-  
-  if (activos.length === 0) {
-    lista.innerHTML = `
-      <div style="text-align:center; padding:30px; color:#888;">
-        No hay pares activos.<br>
-        Crea uno nuevo arriba.
-      </div>
-    `;
-    return;
-  }
-  
-  activos.forEach((trade, index) => {
-    const elemento = document.createElement("div");
-    elemento.className = "par-item";
-    elemento.style.cssText = `
-      padding: 12px 16px; margin: 8px 0; cursor: pointer;
-      background: rgba(255,255,255,0.05); border-radius: 8px;
-      border-left: 4px solid ${trade.color || "#f0b90b"};
-      transition: background 0.2s;
-    `;
-    
-    elemento.onmouseover = () => elemento.style.background = "rgba(255,255,255,0.1)";
-    elemento.onmouseout = () => elemento.style.background = "rgba(255,255,255,0.05)";
-    
-    // Información del trade
-    elemento.innerHTML = `
-      <div style="font-weight: bold; font-size: 1.1rem;">${trade.nombre}</div>
-      <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">
-        ${trade.datos.fecha || ''} ${trade.datos.hora || ''}
-        ${trade.datos.resultado ? '| ' + trade.datos.resultado : ''}
-      </div>
-      <div style="font-size: 0.75rem; color: #666; margin-top: 2px;">
-        ID: ${trade.id}
-      </div>
-    `;
-    
-    // Al hacer clic, abrir este trade
-    elemento.onclick = () => {
-      console.log("Clic en trade:", trade.nombre, "ID:", trade.id, "Índice:", index);
-      abrirTradeParaEditar(index);
-    };
-    
-    lista.appendChild(elemento);
-  });
-}
-
-function mostrarHistorial() {
-  // Ocultar otras secciones
-  ["home", "operaciones", "detalle"].forEach(seccion => {
-    const el = $(seccion);
-    if (el) el.classList.add("oculto");
-  });
-  
-  // Mostrar historial
-  const historial = $("historial");
-  if (historial) {
-    historial.classList.remove("oculto");
-  }
-  
-  // Ocultar botón de historial
-  const btnHistorial = $("btnHistorial");
-  if (btnHistorial) {
-    btnHistorial.style.display = "none";
-  }
-  
-  // Cargar trades archivados
-  cargarListaTradesArchivados();
-}
-
-function cargarListaTradesArchivados() {
-  const contenedor = $("historialContenido");
-  if (!contenedor) return;
-  
-  const archivados = trades.filter(t => t.archivado);
-  
-  contenedor.innerHTML = "";
-  
-  if (archivados.length === 0) {
-    contenedor.innerHTML = `
-      <div style="text-align:center; padding:30px; color:#888;">
-        No hay trades archivados.
-      </div>
-    `;
-    return;
-  }
-  
-  // Ordenar por fecha de archivado (más reciente primero)
-  archivados.sort((a, b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
-  
-  archivados.forEach(trade => {
-    const elemento = document.createElement("div");
-    elemento.className = "historial-item";
-    elemento.style.cssText = `
-      display: flex; align-items: center; padding: 12px 16px; margin: 8px 0;
-      background: rgba(255,255,255,0.05); border-radius: 8px;
-      border-left: 4px solid ${trade.color || "#f0b90b"};
-    `;
-    
-    // Información
-    elemento.innerHTML = `
-      <div style="flex: 1;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: bold;">${trade.nombre}</span>
-          <span style="
-            background: ${trade.datos.resultado?.includes('WIN') ? '#10b98122' : 
-                         trade.datos.resultado?.includes('LOSS') ? '#ef444422' : '#f0b90b22'};
-            color: ${trade.datos.resultado?.includes('WIN') ? '#10b981' : 
-                    trade.datos.resultado?.includes('LOSS') ? '#ef4444' : '#f0b90b'};
-            padding: 2px 8px; border-radius: 12px; font-size: 0.85rem;
-          ">
-            ${trade.datos.resultado || 'S/R'}
-          </span>
-        </div>
-        <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">
-          ${trade.datos.fecha || ''} | ${trade.datos.tipo || ''} | Ratio: ${trade.datos.ratio || '--'}
-        </div>
-        <div style="font-size: 0.75rem; color: #666; margin-top: 2px;">
-          ID: ${trade.id}
-        </div>
-      </div>
-      <button onclick="restablecerTrade(${trade.id})" style="
-        background: transparent; color: #f0b90b; font-size: 1.2rem;
-        border: none; padding: 8px 12px; cursor: pointer; margin-left: 10px;
-        border-radius: 6px; transition: background 0.2s;
-      " title="Restablecer este trade">↩</button>
-    `;
-    
-    // Efecto hover en botón
-    const boton = elemento.querySelector("button");
-    if (boton) {
-      boton.onmouseover = () => boton.style.background = "rgba(240, 185, 11, 0.1)";
-      boton.onmouseout = () => boton.style.background = "transparent";
-    }
-    
-    contenedor.appendChild(elemento);
-  });
-}
-
-// ==================== FUNCIONES UTILITARIAS ====================
-function calcularRatioAuto() {
-  const sl = parseFloat($("sl")?.value || 0);
-  const tp = parseFloat($("tp")?.value || 0);
-  
-  if (sl > 0 && tp > 0) {
-    const ratio = (tp / sl).toFixed(2);
-    const ratioInput = $("ratio");
-    if (ratioInput) ratioInput.value = ratio;
-    
-    // Guardar automáticamente
-    guardarCambiosLocales();
-  }
-}
-
-function actualizarSugerencias() {
-  const datalist = $("misPares");
-  if (!datalist) return;
-  
-  datalist.innerHTML = "";
-  sugerencias.forEach(s => {
-    const option = document.createElement("option");
-    option.value = s;
-    datalist.appendChild(option);
-  });
-}
-
-// ==================== INICIALIZACIÓN ====================
+// INIT
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("🚀 Sistema de Trading iniciado");
-  console.log("Trades cargados:", trades.length);
-  console.log("URL de Google Sheets:", URL_SHEETS);
-  
-  // Configurar eventos
-  const slInput = $("sl");
-  const tpInput = $("tp");
-  
-  if (slInput && tpInput) {
-    slInput.addEventListener("input", calcularRatioAuto);
-    tpInput.addEventListener("input", calcularRatioAuto);
-  }
-  
-  // Configurar autoguardado cada 5 segundos
-  setInterval(() => {
-    if (currentTradeIndex !== null) {
-      guardarCambiosLocales();
-    }
-  }, 5000);
-  
-  // Inicializar interfaz
-  actualizarSugerencias();
-  mostrarHome();
+    const slInput = get("sl");
+    const tpInput = get("tp");
+    if (slInput) slInput.addEventListener("input", calcularRatio);
+    if (tpInput) tpInput.addEventListener("input", calcularRatio);
+
+    const camposAutoSave = [
+        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "maxRatio",
+        "resultado", "duracion", "diario", "horario", "porcentaje",
+        "rNegativo", "rPositivo", "colorAuto"
+    ];
+
+    camposAutoSave.forEach(id => {
+        const el = get(id);
+        if (!el) return;
+        el.addEventListener("change", () => {
+            if (id === "duracion") normalizarDuracion();
+            guardarCambios(true);
+        });
+        if (["text", "number", "url", "date", "time"].includes(el.type)) {
+            el.addEventListener("input", () => {
+                if (id === "duracion") normalizarDuracion();
+                guardarCambios(true);
+            });
+        }
+    });
+
+    // AUTOGUARDADO CADA 5 SEGUNDOS
+    setInterval(() => {
+        if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
+            guardarCambios();
+        }
+    }, 5000);
+
+    updateDatalist();
+    renderColores();
+    showHome();
+    actualizarSesion();
+    setInterval(actualizarSesion, 60000);
 });
 
-// ==================== FUNCIONES GLOBALES ====================
-window.crearNuevoPar = crearNuevoPar;
-window.archivarTrade = archivarTrade;
-window.mostrarHome = mostrarHome;
-window.mostrarHistorial = mostrarHistorial;
-window.restablecerTrade = restablecerTrade;
+function save() {
+    localStorage.setItem("trades_v5_pro", JSON.stringify(trades));
+    localStorage.setItem("sugerencias_v5", JSON.stringify(sugerencias));
+}
+
+function updateDatalist() {
+    const dl = get("misPares");
+    if (!dl) return;
+    dl.innerHTML = "";
+    sugerencias.forEach(s => {
+        const o = document.createElement("option");
+        o.value = s;
+        dl.appendChild(o);
+    });
+}
+
+function renderColores() {
+    const colores = ["#f0b90b", "#f6465d", "#2ebd85", "#3b82f6", "#8b5cf6", "#f97316"];
+    [get("coloresRapidos"), get("coloresRapidosEditar")].forEach(cont => {
+        if (!cont) return;
+        cont.innerHTML = "";
+        colores.forEach(c => {
+            const d = document.createElement("div");
+            d.className = "color-chip";
+            d.style.background = c;
+            d.onclick = () => {
+                if (currentIdx !== null && cont.id === "coloresRapidosEditar") {
+                    trades[currentIdx].color = c;
+                    const colorAuto = get("colorAuto");
+                    if (colorAuto) colorAuto.value = c;
+                    guardarCambios(true);
+                    showHome();
+                } else {
+                    const colorPar = get("colorPar");
+                    if (colorPar) colorPar.value = c;
+                }
+            };
+            cont.appendChild(d);
+        });
+    });
+}
+
+// ==================== FUNCIÓN CORREGIDA: GUARDAR PAR ====================
+function guardarPar() {
+    const inputPar = get("inputPar");
+    const colorPar = get("colorPar");
+    if (!inputPar || !colorPar) return;
+
+    const nom = inputPar.value.trim().toUpperCase();
+    if (!nom) {
+        mostrarToast("Por favor, ingresa un nombre para el activo", 'error');
+        return;
+    }
+    if (!sugerencias.includes(nom)) sugerencias.push(nom);
+
+    const ahora = new Date();
+    
+    // Generar ID único con Date.now()
+    const idUnico = Date.now();
+    
+    const nuevoTrade = {
+        id: idUnico,
+        nombre: nom,
+        color: colorPar.value,
+        archivado: false,
+        archivadoPreviamente: false,
+        datos: {
+            fecha: ahora.toISOString().split("T")[0],
+            hora: ahora.getHours().toString().padStart(2, "0") + ":" +
+                  ahora.getMinutes().toString().padStart(2, "0")
+        }
+    };
+
+    trades.push(nuevoTrade);
+    inputPar.value = "";
+    save();
+    updateDatalist();
+    showHome();
+    abrirForm(trades.length - 1);
+    mostrarToast(`✅ Nuevo par creado con ID: ${idUnico}`, 'exito');
+}
+
+function showHome() {
+    const home = get("home");
+    const operaciones = get("operaciones");
+    const historial = get("historial");
+    const detalle = get("detalle");
+    const btnHistorial = get("btnHistorial");
+    const list = get("listaPares");
+
+    if (home) home.classList.remove("oculto");
+    if (operaciones) operaciones.classList.add("oculto");
+    if (historial) historial.classList.add("oculto");
+    if (detalle) detalle.classList.add("oculto");
+    if (btnHistorial) btnHistorial.style.display = "flex";
+    if (!list) return;
+
+    list.innerHTML = "";
+    const paresActivos = trades.filter(t => !t.archivado);
+
+    if (paresActivos.length === 0) {
+        list.innerHTML = `<div class="card-glass" style="text-align:center; color:var(--subtext);">
+      No hay pares activos. Agrega uno nuevo.
+    </div>`;
+        return;
+    }
+
+    paresActivos.forEach(t => {
+        const d = document.createElement("div");
+        d.className = "par";
+        d.style.borderLeft = `6px solid ${t.color}`;
+        if (currentIdx !== null && trades[currentIdx].id === t.id) {
+            d.classList.add("selected");
+        }
+
+        let info = `<div style="font-size:1.2rem;">${t.nombre}</div>`;
+        
+        // Mostrar número de par si existe
+        if (t.datos.numeroPar) {
+            info += `<div style="color:var(--accent); font-weight:bold; font-size:0.9rem; margin-top:3px;">
+                Nº PAR: ${t.datos.numeroPar}
+            </div>`;
+        }
+        
+        if (t.datos.fecha) {
+            info += `<div style="color:var(--subtext); font-weight:400; font-size:0.9rem; margin-top:6px;">`;
+            info += `${t.datos.fecha}`;
+            if (t.datos.resultado) info += ` | ${t.datos.resultado}`;
+            info += `</div>`;
+        }
+
+        d.innerHTML = info;
+        d.addEventListener("click", () => {
+            const idx = trades.findIndex(tr => tr.id === t.id);
+            if (idx !== -1) {
+                abrirForm(idx);
+            }
+        });
+
+        list.appendChild(d);
+    });
+}
+
+function abrirForm(i) {
+    currentIdx = i;
+    const t = trades[i];
+    if (!t) return;
+
+    const tituloPar = get("tituloPar");
+    const colorAuto = get("colorAuto");
+    if (tituloPar) tituloPar.textContent = t.nombre;
+    if (colorAuto) colorAuto.value = t.color || "#f0b90b";
+
+    const campos = [
+        "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
+        "resultado", "duracion", "diario", "horario", "porcentaje",
+        "rNegativo", "rPositivo"
+    ];
+
+    campos.forEach(id => {
+        const el = get(id);
+        if (!el) return;
+        if (t.datos && t.datos[id] !== undefined && t.datos[id] !== null) {
+            el.value = t.datos[id];
+        } else {
+            el.value = "";
+        }
+    });
+
+    normalizarDuracion();
+
+    if (!get("fecha").value) {
+        get("fecha").value = new Date().toISOString().split("T")[0];
+        guardarCambios();
+    }
+
+    if (!get("hora").value) {
+        const ahora = new Date();
+        get("hora").value =
+            ahora.getHours().toString().padStart(2, "0") + ":" +
+            ahora.getMinutes().toString().padStart(2, "0");
+        guardarCambios();
+    }
+
+    const home = get("home");
+    const operaciones = get("operaciones");
+    const btnHistorial = get("btnHistorial");
+    if (home) home.classList.add("oculto");
+    if (operaciones) operaciones.classList.remove("oculto");
+    if (btnHistorial) btnHistorial.style.display = "none";
+
+    calcularRatio();
+}
+
+// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
+async function archivarPar() {
+    if (!get("fecha").value || !get("resultado").value) {
+        mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
+        return;
+    }
+
+    normalizarDuracion();
+    guardarCambios();
+    
+    const trade = trades[currentIdx];
+    const esUnaActualizacion = trade.archivadoPreviamente === true;
+    
+    // ==================== NUEVO: ASIGNAR NÚMERO DE PAR CONSECUTIVO ====================
+    if (!trade.datos.numeroPar || trade.datos.numeroPar === '0' || trade.datos.numeroPar === 0) {
+        const siguienteNumero = obtenerSiguienteNumeroPar();
+        trade.datos.numeroPar = siguienteNumero;
+        console.log(`🔢 Asignando número de par consecutivo: ${siguienteNumero}`);
+    } else {
+        console.log(`📊 Usando número de par existente: ${trade.datos.numeroPar}`);
+    }
+    // ==================== FIN NUEVO ====================
+    
+    trade.datos.archivedAt = Date.now();
+    trade.archivado = true;
+    trade.archivadoPreviamente = true;
+    save();
+
+    try {
+        const datos = trade.datos;
+
+        const tradeData = {
+            id: trade.id,
+            numeroPar: datos.numeroPar || '', // ¡¡¡AGREGAR NÚMERO DE PAR!!!
+            par: trade.nombre || '',
+            fecha: datos.fecha || '',
+            hora: datos.hora || '',
+            tipo: datos.tipo || '',
+            gatillo: datos.gatillo || '',
+            sl: datos.sl || '',
+            tp: datos.tp || '',
+            ratio: datos.ratio || '',
+            maxRatio: datos.maxRatio || '',
+            resultado: datos.resultado || '',
+            duracion: datos.duracion || '',
+            diario: datos.diario || '',
+            horario: datos.horario || '',
+            porcentaje: datos.porcentaje || '',
+            rNegativo: datos.rNegativo || '',
+            rPositivo: datos.rPositivo || ''
+        };
+        
+        if (esUnaActualizacion) {
+            tradeData.accion = 'actualizar';
+        }
+
+        const params = new URLSearchParams();
+        Object.keys(tradeData).forEach(key => {
+            if (tradeData[key] !== undefined && tradeData[key] !== null) {
+                params.append(key, tradeData[key]);
+            }
+        });
+
+        await fetch(`${URL_SHEETS}?${params.toString()}`, {
+            method: 'POST',
+            mode: 'no-cors'
+        });
+
+        const mensaje = esUnaActualizacion 
+            ? `✅ Trade ACTUALIZADO en Google Sheets - Nº PAR: ${tradeData.numeroPar}` 
+            : `✅ NUEVO Trade archivado en Google Sheets - Nº PAR: ${tradeData.numeroPar}`;
+        mostrarToast(mensaje, 'exito');
+        
+    } catch (error) {
+        console.error('Error al enviar a Google Sheets:', error);
+        mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
+    }
+
+    volverHome();
+}
+
+function limpiarFiltros() {
+    const fNom = get("filtroNombre");
+    const fFecha = get("filtroFecha");
+    if (fNom) fNom.value = "";
+    if (fFecha) fFecha.value = "";
+    abrirHistorial();
+}
+
+function abrirHistorial() {
+    const home = get("home");
+    const historial = get("historial");
+    const detalle = get("detalle");
+    const operaciones = get("operaciones");
+    const btnHistorial = get("btnHistorial");
+    const cont = get("historialContenido");
+
+    if (home) home.classList.add("oculto");
+    if (operaciones) operaciones.classList.add("oculto");
+    if (detalle) detalle.classList.add("oculto");
+    if (historial) historial.classList.remove("oculto");
+    if (btnHistorial) btnHistorial.style.display = "none";
+    if (!cont) return;
+
+    cont.innerHTML = "";
+    const fNom = (get("filtroNombre")?.value || "").toUpperCase();
+    const fFecha = get("filtroFecha")?.value || "";
+
+    const filtrados = trades
+        .map((t, i) => ({ ...t, origIdx: i }))
+        .filter(t => {
+            if (!t.archivado) return false;
+            const matchNom = t.nombre.includes(fNom);
+            const matchFecha = fFecha === "" || (t.datos.fecha === fFecha);
+            return matchNom && matchFecha;
+        })
+        .sort((a, b) => (b.datos.archivedAt || 0) - (a.datos.archivedAt || 0));
+
+    let n = 0, p = 0;
+    filtrados.forEach(t => {
+        n += parseFloat(t.datos.rNegativo || 0);
+        p += parseFloat(t.datos.rPositivo || 0);
+    });
+
+    const resumen = get("resumenGlobal");
+    if (resumen) {
+        resumen.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="color:#ef4444; font-weight:700;">R- ${n.toFixed(2)}</span>
+      <span style="color:#10b981; font-weight:700;">R+ ${p.toFixed(2)}</span>
+      <b style="color:#f0b90b;">NETO ${(p - n).toFixed(2)} R</b>
+    </div>`;
+    }
+
+    filtrados.forEach(t => {
+        const statusClass = t.datos.resultado?.toUpperCase().includes("WIN")
+            ? "win"
+            : t.datos.resultado?.toUpperCase().includes("LOSS")
+                ? "loss"
+                : "";
+
+        const d = document.createElement("div");
+        d.className = "historial-item";
+        d.innerHTML = `
+      <input type="checkbox" class="sel-trade" data-id="${t.id}" style="width:18px; margin-right:15px;">
+      <div class="historial-info" style="border-left:4px solid ${t.color}; padding-left: 10px; flex: 1;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap: 8px;">
+            ${t.datos.numeroPar ? `<span style="background:#3b82f6; color:white; border-radius:4px; padding:2px 6px; font-size:0.8rem; font-weight:bold;">Nº ${t.datos.numeroPar}</span>` : ''}
+            <b>${t.nombre}</b>
+          </div>
+          <span class="badge ${statusClass}">${t.datos.resultado || "S/R"}</span>
+        </div>
+        <small style="color:var(--subtext);">${t.datos.fecha || "---"} | ${t.datos.tipo || ""} | Ratio: ${t.datos.ratio || "--"}</small>
+      </div>
+      <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">↩</button>
+    `;
+        d.querySelector(".historial-info").onclick = () => verDetalle(t.origIdx);
+        cont.appendChild(d);
+    });
+}
+
+function verDetalle(i) {
+    const historial = get("historial");
+    const detalle = get("detalle");
+    if (historial) historial.classList.add("oculto");
+    if (detalle) detalle.classList.remove("oculto");
+
+    const t = trades[i];
+    if (!t) return;
+
+    get("detalleTitulo").textContent = t.nombre;
+    let html = `<div class="card-glass" style="font-size:14px;">`;
+
+    html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.5); padding:8px 0; margin-bottom: 8px;">
+    <span style="color:var(--subtext)">COLOR</span>
+    <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
+  </div>`;
+
+    // Mostrar número de par primero
+    if (t.datos.numeroPar) {
+      html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0; background:rgba(59, 130, 246, 0.1);">
+        <span style="color:var(--subtext); font-weight:bold;">Nº PAR</span>
+        <span style="font-weight:bold; color:#3b82f6;">${t.datos.numeroPar}</span>
+      </div>`;
+    }
+
+    for (const key in t.datos) {
+        if (key === "archivedAt" || key === "numeroPar") continue;
+        let val = t.datos[key];
+        if (key.includes("diario") || key.includes("horario")) {
+            val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
+        }
+        html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
+      <span style="color:var(--subtext)">${key.toUpperCase()}</span>
+      <span>${val || "---"}</span>
+    </div>`;
+    }
+
+    html += `
+    <button onclick="eliminarUno(${t.id})" class="btn-danger premium" style="width:100%; margin-top:18px;">
+      Eliminar Permanente
+    </button>
+  </div>`;
+    get("detalleContenido").innerHTML = html;
+}
+
+// ==================== FUNCIÓN: RESTABLECER ====================
+function restablecer(id) {
+    const idx = trades.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    
+    trades[idx].archivado = false;
+    trades[idx].archivadoPreviamente = true;
+    
+    save();
+    abrirHistorial();
+    mostrarToast("Trade restablecido", 'exito');
+}
+
+function eliminarUno(id) {
+    if (!confirm("¿Estás seguro de eliminar permanentemente este trade?")) return;
+    trades = trades.filter(t => t.id !== id);
+    save();
+    volverHistorial();
+    mostrarToast("Trade eliminado", 'exito');
+}
+
+function eliminarSeleccionados() {
+    const sels = document.querySelectorAll(".sel-trade:checked");
+    if (sels.length === 0) {
+        mostrarToast("No hay trades seleccionados", 'error');
+        return;
+    }
+    if (!confirm(`¿Estás seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
+
+    const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
+    trades = trades.filter(t => !ids.includes(t.id));
+    save();
+    abrirHistorial();
+    mostrarToast(`${sels.length} trades eliminados`, 'exito');
+}
+
+function volverHome() {
+    if (currentIdx !== null) guardarCambios();
+    currentIdx = null;
+    showHome();
+}
+
+function volverHistorial() {
+    const detalle = get("detalle");
+    if (detalle) detalle.classList.add("oculto");
+    abrirHistorial();
+}
+
+// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
+function migrarTradesAntiguos() {
+    let cambioRealizado = false;
+    trades.forEach(t => {
+        if (t.archivadoPreviamente === undefined) {
+            t.archivadoPreviamente = t.archivado;
+            cambioRealizado = true;
+        }
+        // Si el ID es inválido, generar uno nuevo
+        if (!t.id || t.id === 0) {
+            t.id = Date.now() + Math.floor(Math.random() * 1000);
+            cambioRealizado = true;
+        }
+        // Asignar números de par si no existen
+        if (t.archivado && (!t.datos.numeroPar || t.datos.numeroPar === 0)) {
+            t.datos.numeroPar = obtenerSiguienteNumeroPar();
+            cambioRealizado = true;
+        }
+    });
+    if (cambioRealizado) {
+        save();
+        console.log("✅ Migración de trades antiguos completada con numeración de pares.");
+    }
+}
+
+// Ejecutar automáticamente al cargar la página
+migrarTradesAntiguos();
+
+// ==================== FUNCIONES GLOBALES (TODAS) ====================
+window.guardarPar = guardarPar;
+window.archivarPar = archivarPar;
+window.volverHome = volverHome;
+window.abrirHistorial = abrirHistorial;
+window.limpiarFiltros = limpiarFiltros;
+window.eliminarSeleccionados = eliminarSeleccionados;
+window.volverHistorial = volverHistorial;
+window.restablecer = restablecer;
+window.eliminarUno = eliminarUno;
+window.exportarBackup = exportarBackup;
+
+// Registro del Service Worker para PWA
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js")
+            .catch(err => console.log("SW error:", err));
+    });
+}
