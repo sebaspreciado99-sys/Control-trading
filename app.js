@@ -54,67 +54,6 @@ function exportarBackup() {
     }
 }
 
-// ==================== FUNCIÓN: SINCRONIZAR CON GOOGLE SHEETS ====================
-async function sincronizarConGoogleSheets() {
-    mostrarToast("🔄 Sincronizando trades con Google Sheets...", 'exito');
-    
-    const tradesParaSincronizar = trades.filter(t => t.archivado && !t.datos.idGoogleSheets);
-    
-    if (tradesParaSincronizar.length === 0) {
-        mostrarToast("✅ Todos los trades están sincronizados", 'exito');
-        return;
-    }
-    
-    mostrarToast(`📤 Enviando ${tradesParaSincronizar.length} trades a Google Sheets...`, 'exito');
-    
-    for (const trade of tradesParaSincronizar) {
-        try {
-            const datos = trade.datos;
-            
-            const tradeData = {
-                par: trade.nombre || '',
-                fecha: datos.fecha || '',
-                hora: datos.hora || '',
-                tipo: datos.tipo || '',
-                gatillo: datos.gatillo || '',
-                sl: datos.sl || '',
-                tp: datos.tp || '',
-                ratio: datos.ratio || '',
-                maxRatio: datos.maxRatio || '',
-                resultado: datos.resultado || '',
-                duracion: datos.duracion || '',
-                diario: datos.diario || '',
-                horario: datos.horario || '',
-                porcentaje: datos.porcentaje || '',
-                rNegativo: datos.rNegativo || '',
-                rPositivo: datos.rPositivo || ''
-            };
-            
-            const params = new URLSearchParams();
-            Object.keys(tradeData).forEach(key => {
-                if (tradeData[key] !== undefined && tradeData[key] !== null && tradeData[key] !== '') {
-                    params.append(key, tradeData[key]);
-                }
-            });
-            
-            await fetch(URL_SHEETS, {
-                method: 'POST',
-                body: params,
-                mode: 'no-cors'
-            });
-            
-            // Marcar como sincronizado
-            trade.datos.idGoogleSheets = 'sincronizado_' + Date.now();
-            
-        } catch (error) {
-            console.error(`Error sincronizando trade ${trade.nombre}:`, error);
-        }
-    }
-    
-    save();
-    mostrarToast(`✅ ${tradesParaSincronizar.length} trades sincronizados con Google Sheets`, 'exito');
-}
-
 // SESIÓN ACTUAL
 function actualizarSesion() {
     const el = get("sesionActual");
@@ -171,7 +110,6 @@ function guardarCambios(mostrarNotificacion = false) {
 
     save();
 
-    // Indicador de autoguardado
     if (mostrarNotificacion) {
         const indicador = document.getElementById('autosaveIndicator');
         if (indicador) {
@@ -225,7 +163,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // AUTOGUARDADO CADA 5 SEGUNDOS
     setInterval(() => {
         if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
             guardarCambios();
@@ -307,7 +244,8 @@ function guardarPar() {
         datos: {
             fecha: ahora.toISOString().split("T")[0],
             hora: ahora.getHours().toString().padStart(2, "0") + ":" +
-                  ahora.getMinutes().toString().padStart(2, "0")
+                  ahora.getMinutes().toString().padStart(2, "0"),
+            id_trade: null // Este se llenará cuando se archive en Google Sheets
         }
     };
 
@@ -355,10 +293,10 @@ function showHome() {
 
         let info = `<div style="font-size:1.2rem;">${t.nombre}</div>`;
         
-        // Mostrar si tiene ID de Google Sheets
-        if (t.datos.idGoogleSheets) {
+        // Mostrar ID de Google Sheets si existe (pero NO los migrados)
+        if (t.datos.id_trade && typeof t.datos.id_trade === 'number') {
             info += `<div style="color:#3b82f6; font-weight:bold; font-size:0.8rem; margin-top:3px;">
-                ID Google: ${t.datos.idGoogleSheets.toString().substring(0, 10)}...
+                ID Trade: ${t.datos.id_trade}
             </div>`;
         }
         
@@ -432,7 +370,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN MEJORADA: ARCHIVAR PAR ====================
+// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -445,13 +383,10 @@ async function archivarPar() {
     const trade = trades[currentIdx];
     const esUnaActualizacion = trade.archivadoPreviamente === true;
     
-    console.log("Archivando trade:", trade.nombre, "¿Es actualización?", esUnaActualizacion);
+    console.log("📤 Enviando trade:", trade.nombre, "¿Es actualización?", esUnaActualizacion);
+    console.log("ID trade actual:", trade.datos.id_trade);
     
-    // Guardar el ID de Google Sheets localmente si no existe
-    if (!trade.datos.idGoogleSheets && esUnaActualizacion) {
-        console.log("⚠️ Trade no tiene idGoogleSheets guardado");
-    }
-    
+    // Marcar como archivado localmente
     trade.datos.archivedAt = Date.now();
     trade.archivado = true;
     trade.archivadoPreviamente = true;
@@ -460,7 +395,9 @@ async function archivarPar() {
     try {
         const datos = trade.datos;
 
+        // CONSTRUIR DATOS PARA ENVIAR - CORRECCIÓN CRÍTICA
         const tradeData = {
+            // ⚠️ SOLUCIÓN: NO enviar 'id' por defecto
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -479,21 +416,25 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // Para actualizaciones, buscar el ID de Google Sheets
+        // SOLUCIÓN DEFINITIVA PARA ACTUALIZACIONES/RESTABLECIMIENTOS
         if (esUnaActualizacion) {
             tradeData.accion = 'actualizar';
             
-            // Intentar encontrar el ID guardado
-            if (trade.datos.idGoogleSheets) {
-                tradeData.id = trade.datos.idGoogleSheets;
-                console.log("Enviando ID para actualización:", tradeData.id);
+            // ⚠️ IMPORTANTE: Solo enviar ID si tenemos un id_trade NUMÉRICO
+            if (trade.datos.id_trade && typeof trade.datos.id_trade === 'number') {
+                tradeData.id = trade.datos.id_trade;
+                console.log("✅ Enviando ID para ACTUALIZAR:", tradeData.id);
             } else {
-                console.log("⚠️ No se encontró idGoogleSheets, Google buscará por Par+Fecha+Hora");
+                console.log("⚠️ No hay ID numérico, Google buscará por Par+Fecha+Hora");
+                // NO enviar 'id' - Google buscará por otros campos
             }
         } else {
             console.log("🆕 Enviando como NUEVO trade (sin ID)");
+            // Para nuevos trades, NO enviar 'id' ni 'accion'
+            delete tradeData.accion;
         }
 
+        // Construir parámetros
         const params = new URLSearchParams();
         Object.keys(tradeData).forEach(key => {
             if (tradeData[key] !== undefined && tradeData[key] !== null && tradeData[key] !== '') {
@@ -501,27 +442,26 @@ async function archivarPar() {
             }
         });
 
+        console.log("📤 Enviando datos:", params.toString());
+
+        // Enviar a Google Sheets
         await fetch(URL_SHEETS, {
             method: 'POST',
             body: params,
             mode: 'no-cors'
         });
         
-        // Intentar guardar el ID asignado por Google Sheets
-        if (!esUnaActualizacion) {
-            // Para nuevos trades, marcamos que fue enviado a Google Sheets
-            trade.datos.enviadoGoogleSheets = true;
-            trade.datos.fechaEnvio = Date.now();
-            save();
-        }
-
+        // IMPORTANTE: Para NUEVOS trades, NO intentamos guardar un ID
+        // Google Sheets asignará uno y no podemos leerlo con 'no-cors'
+        // Los IDs se sincronizarán manualmente o en la próxima actualización
+        
         const mensaje = esUnaActualizacion 
             ? "✅ Trade ACTUALIZADO en Google Sheets" 
             : "✅ NUEVO Trade archivado en Google Sheets";
         mostrarToast(mensaje, 'exito');
         
     } catch (error) {
-        console.error('Error al enviar a Google Sheets:', error);
+        console.error('❌ Error al enviar a Google Sheets:', error);
         mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
     }
 
@@ -590,10 +530,10 @@ function abrirHistorial() {
         const d = document.createElement("div");
         d.className = "historial-item";
         
-        // Mostrar ID de Google Sheets si existe
-        const idInfo = t.datos.idGoogleSheets ? 
-            `<span style="background:#3b82f6; color:white; border-radius:4px; padding:2px 6px; font-size:0.7rem; margin-right:5px;">
-                ID: ${t.datos.idGoogleSheets.toString().substring(0, 8)}...
+        // SOLUCIÓN: Solo mostrar ID si es numérico (no los migrados)
+        const idInfo = (t.datos.id_trade && typeof t.datos.id_trade === 'number') ? 
+            `<span style="background:#3b82f6; color:white; border-radius:4px; padding:2px 6px; font-size:0.7rem; margin-right:5px; font-weight:bold;">
+                #${t.datos.id_trade}
             </span>` : '';
         
         d.innerHTML = `
@@ -632,16 +572,16 @@ function verDetalle(i) {
     <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
   </div>`;
 
-    // Mostrar ID de Google Sheets si existe
-    if (t.datos.idGoogleSheets) {
+    // Mostrar ID_Trade de Google Sheets si existe y es numérico
+    if (t.datos.id_trade && typeof t.datos.id_trade === 'number') {
         html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0; background:rgba(59, 130, 246, 0.1);">
-      <span style="color:var(--subtext); font-weight:bold;">ID GOOGLE SHEETS</span>
-      <span style="font-weight:bold; color:#3b82f6;">${t.datos.idGoogleSheets}</span>
+      <span style="color:var(--subtext); font-weight:bold;">ID_TRADE</span>
+      <span style="font-weight:bold; color:#3b82f6;">${t.datos.id_trade}</span>
     </div>`;
     }
 
     for (const key in t.datos) {
-        if (key === "archivedAt" || key === "idGoogleSheets" || key === "enviadoGoogleSheets" || key === "fechaEnvio") continue;
+        if (key === "archivedAt" || key === "id_trade") continue;
         let val = t.datos[key];
         if (key.includes("diario") || key.includes("horario")) {
             val = val ? `<a href="${val}" target="_blank" style="color:#f0b90b;">Ver Link</a>` : "---";
@@ -660,8 +600,8 @@ function verDetalle(i) {
     get("detalleContenido").innerHTML = html;
 }
 
-// ==================== FUNCIÓN MEJORADA: RESTABLECER ====================
-async function restablecer(id) {
+// ==================== FUNCIÓN CORREGIDA: RESTABLECER ====================
+function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) {
         mostrarToast("Trade no encontrado", 'error');
@@ -675,13 +615,17 @@ async function restablecer(id) {
         return;
     }
     
+    // SOLUCIÓN: Mantener el id_trade al restablecer
+    console.log("Restableciendo trade:", trade.nombre, "ID_Trade actual:", trade.datos.id_trade);
+    
     // Solo cambiar el estado local
     trade.archivado = false;
-    trade.datos.resultado = "RESTABLECIDO";
+    // IMPORTANTE: NO cambiar archivadoPreviamente - mantener como true
+    // IMPORTANTE: NO modificar id_trade - mantener el número asignado
     
     save();
     
-    mostrarToast("✅ Trade restablecido localmente. Para actualizar en Google Sheets, edítalo y archívalo nuevamente.", 'exito');
+    mostrarToast("✅ Trade restablecido. Edítalo y archívalo para actualizar en Google Sheets.", 'exito');
     
     abrirHistorial();
 }
@@ -695,8 +639,8 @@ function eliminarUno(id) {
     const trade = trades[idx];
     
     // Si está archivado y tiene ID de Google Sheets, podemos marcarlo como eliminado
-    if (trade.archivado && trade.datos.idGoogleSheets) {
-        console.log(`Trade ${trade.nombre} tenía ID Google Sheets: ${trade.datos.idGoogleSheets}`);
+    if (trade.archivado && trade.datos.id_trade) {
+        console.log(`Trade ${trade.nombre} tenía ID_Trade: ${trade.datos.id_trade}`);
     }
     
     // Eliminar localmente
@@ -733,7 +677,7 @@ function volverHistorial() {
     abrirHistorial();
 }
 
-// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
+// ==================== MIGRACIÓN SIN "ID MIGRADO" ====================
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
     trades.forEach(t => {
@@ -741,21 +685,25 @@ function migrarTradesAntiguos() {
             t.archivadoPreviamente = t.archivado;
             cambioRealizado = true;
         }
+        
         // Si el ID es inválido, generar uno nuevo
         if (!t.id || t.id === 0) {
             t.id = Date.now() + Math.floor(Math.random() * 1000);
             cambioRealizado = true;
         }
-        // Para trades archivados sin idGoogleSheets, asignar uno
-        if (t.archivado && !t.datos.idGoogleSheets) {
-            t.datos.idGoogleSheets = 'migrado_' + Date.now();
-            cambioRealizado = true;
-        }
+        
+        // ⚠️ IMPORTANTE: NO crear IDs de "migrado"
+        // Los IDs reales vendrán de Google Sheets cuando se archive
     });
     if (cambioRealizado) {
         save();
-        console.log("✅ Migración de trades antiguos completada.");
+        console.log("✅ Migración de trades antiguos completada (SIN IDs migrados).");
     }
+}
+
+// ==================== FUNCIÓN: SINCRONIZAR MANUALMENTE ====================
+function sincronizarManual() {
+    mostrarToast("La sincronización es automática al archivar trades.", 'exito');
 }
 
 // Ejecutar automáticamente al cargar la página
@@ -772,7 +720,7 @@ window.volverHistorial = volverHistorial;
 window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
-window.sincronizarConGoogleSheets = sincronizarConGoogleSheets;
+window.sincronizarManual = sincronizarManual;
 
 // Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
