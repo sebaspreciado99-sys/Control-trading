@@ -1,4 +1,4 @@
-// URL para Google Sheets - ACTUALIZA ESTO CON LA NUEVA URL DE GOOGLE SCRIPT
+// URL para Google Sheets
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -245,7 +245,7 @@ function guardarPar() {
             fecha: ahora.toISOString().split("T")[0],
             hora: ahora.getHours().toString().padStart(2, "0") + ":" +
                   ahora.getMinutes().toString().padStart(2, "0"),
-            id_trade: null // Este se llenará cuando se archive en Google Sheets
+            id_trade: null // Se llenará cuando se archive
         }
     };
 
@@ -293,10 +293,10 @@ function showHome() {
 
         let info = `<div style="font-size:1.2rem;">${t.nombre}</div>`;
         
-        // Mostrar ID de Google Sheets si existe (pero NO los migrados)
-        if (t.datos.id_trade && typeof t.datos.id_trade === 'number') {
-            info += `<div style="color:#3b82f6; font-weight:bold; font-size:0.8rem; margin-top:3px;">
-                ID Trade: ${t.datos.id_trade}
+        // Mostrar ID_Trade si existe (solo números)
+        if (t.datos.id_trade && !isNaN(t.datos.id_trade)) {
+            info += `<div style="color:#3b82f6; font-weight:bold; font-size:0.9rem; margin-top:3px;">
+                ID: ${t.datos.id_trade}
             </div>`;
         }
         
@@ -383,21 +383,32 @@ async function archivarPar() {
     const trade = trades[currentIdx];
     const esUnaActualizacion = trade.archivadoPreviamente === true;
     
-    console.log("📤 Enviando trade:", trade.nombre, "¿Es actualización?", esUnaActualizacion);
-    console.log("ID trade actual:", trade.datos.id_trade);
+    console.log("📤 Enviando trade:", trade.nombre, 
+                "¿Actualización?", esUnaActualizacion, 
+                "ID_Trade:", trade.datos.id_trade);
     
-    // Marcar como archivado localmente
+    // Guardar datos importantes ANTES de cambiar estado
+    const datosOriginales = {
+        resultado: trade.datos.resultado || '',
+        id_trade: trade.datos.id_trade || null
+    };
+    
     trade.datos.archivedAt = Date.now();
     trade.archivado = true;
     trade.archivadoPreviamente = true;
+    
+    // Asegurar que no perdemos el resultado
+    if (!trade.datos.resultado && datosOriginales.resultado) {
+        trade.datos.resultado = datosOriginales.resultado;
+    }
+    
     save();
 
     try {
         const datos = trade.datos;
 
-        // CONSTRUIR DATOS PARA ENVIAR - CORRECCIÓN CRÍTICA
+        // DATOS BÁSICOS SIEMPRE
         const tradeData = {
-            // ⚠️ SOLUCIÓN: NO enviar 'id' por defecto
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -407,7 +418,7 @@ async function archivarPar() {
             tp: datos.tp || '',
             ratio: datos.ratio || '',
             maxRatio: datos.maxRatio || '',
-            resultado: datos.resultado || '',
+            resultado: datos.resultado || '', // <-- AQUÍ ESTÁ EL RESULTADO
             duracion: datos.duracion || '',
             diario: datos.diario || '',
             horario: datos.horario || '',
@@ -416,25 +427,22 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // SOLUCIÓN DEFINITIVA PARA ACTUALIZACIONES/RESTABLECIMIENTOS
+        // DIFERENCIA CRÍTICA ENTRE NUEVO Y ACTUALIZACIÓN
         if (esUnaActualizacion) {
             tradeData.accion = 'actualizar';
             
-            // ⚠️ IMPORTANTE: Solo enviar ID si tenemos un id_trade NUMÉRICO
-            if (trade.datos.id_trade && typeof trade.datos.id_trade === 'number') {
+            // ⚠️ SOLUCIÓN: SIEMPRE enviar el id_trade si existe
+            if (trade.datos.id_trade) {
                 tradeData.id = trade.datos.id_trade;
-                console.log("✅ Enviando ID para ACTUALIZAR:", tradeData.id);
+                console.log("🔁 ACTUALIZANDO trade existente ID:", tradeData.id);
             } else {
-                console.log("⚠️ No hay ID numérico, Google buscará por Par+Fecha+Hora");
-                // NO enviar 'id' - Google buscará por otros campos
+                console.log("⚠️ Trade sin id_trade, se buscará por Par+Fecha");
             }
         } else {
-            console.log("🆕 Enviando como NUEVO trade (sin ID)");
-            // Para nuevos trades, NO enviar 'id' ni 'accion'
-            delete tradeData.accion;
+            console.log("🆕 CREANDO nuevo trade (sin ID)");
+            // Para nuevo trade: NO enviar 'id' ni 'accion'
         }
 
-        // Construir parámetros
         const params = new URLSearchParams();
         Object.keys(tradeData).forEach(key => {
             if (tradeData[key] !== undefined && tradeData[key] !== null && tradeData[key] !== '') {
@@ -442,27 +450,19 @@ async function archivarPar() {
             }
         });
 
-        console.log("📤 Enviando datos:", params.toString());
+        console.log("📤 Datos enviados:", Object.fromEntries(params));
 
-        // Enviar a Google Sheets
         await fetch(URL_SHEETS, {
             method: 'POST',
             body: params,
             mode: 'no-cors'
         });
-        
-        // IMPORTANTE: Para NUEVOS trades, NO intentamos guardar un ID
-        // Google Sheets asignará uno y no podemos leerlo con 'no-cors'
-        // Los IDs se sincronizarán manualmente o en la próxima actualización
-        
-        const mensaje = esUnaActualizacion 
-            ? "✅ Trade ACTUALIZADO en Google Sheets" 
-            : "✅ NUEVO Trade archivado en Google Sheets";
-        mostrarToast(mensaje, 'exito');
+
+        mostrarToast(esUnaActualizacion ? "✅ Trade actualizado" : "✅ Nuevo trade archivado", 'exito');
         
     } catch (error) {
-        console.error('❌ Error al enviar a Google Sheets:', error);
-        mostrarToast("✅ Trade archivado (solo localmente)", 'exito');
+        console.error('❌ Error al enviar:', error);
+        mostrarToast("✅ Trade archivado localmente", 'exito');
     }
 
     volverHome();
@@ -530,8 +530,8 @@ function abrirHistorial() {
         const d = document.createElement("div");
         d.className = "historial-item";
         
-        // SOLUCIÓN: Solo mostrar ID si es numérico (no los migrados)
-        const idInfo = (t.datos.id_trade && typeof t.datos.id_trade === 'number') ? 
+        // Mostrar ID si existe y es número
+        const idInfo = (t.datos.id_trade && !isNaN(t.datos.id_trade)) ? 
             `<span style="background:#3b82f6; color:white; border-radius:4px; padding:2px 6px; font-size:0.7rem; margin-right:5px; font-weight:bold;">
                 #${t.datos.id_trade}
             </span>` : '';
@@ -572,8 +572,8 @@ function verDetalle(i) {
     <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
   </div>`;
 
-    // Mostrar ID_Trade de Google Sheets si existe y es numérico
-    if (t.datos.id_trade && typeof t.datos.id_trade === 'number') {
+    // Mostrar ID_Trade si existe
+    if (t.datos.id_trade) {
         html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0; background:rgba(59, 130, 246, 0.1);">
       <span style="color:var(--subtext); font-weight:bold;">ID_TRADE</span>
       <span style="font-weight:bold; color:#3b82f6;">${t.datos.id_trade}</span>
@@ -615,17 +615,22 @@ function restablecer(id) {
         return;
     }
     
-    // SOLUCIÓN: Mantener el id_trade al restablecer
-    console.log("Restableciendo trade:", trade.nombre, "ID_Trade actual:", trade.datos.id_trade);
+    console.log("Restableciendo:", trade.nombre, 
+                "Resultado:", trade.datos.resultado,
+                "ID_Trade:", trade.datos.id_trade);
     
-    // Solo cambiar el estado local
+    // ⚠️ SOLUCIÓN: NO modificar datos existentes
+    // Solo cambiar el estado de archivado
     trade.archivado = false;
-    // IMPORTANTE: NO cambiar archivadoPreviamente - mantener como true
-    // IMPORTANTE: NO modificar id_trade - mantener el número asignado
+    
+    // Asegurar que el resultado no se pierda
+    if (!trade.datos.resultado) {
+        trade.datos.resultado = "RESTABLECIDO";
+    }
     
     save();
     
-    mostrarToast("✅ Trade restablecido. Edítalo y archívalo para actualizar en Google Sheets.", 'exito');
+    mostrarToast(`✅ Trade restablecido ${trade.datos.id_trade ? 'ID: ' + trade.datos.id_trade : ''}`, 'exito');
     
     abrirHistorial();
 }
@@ -638,12 +643,8 @@ function eliminarUno(id) {
     
     const trade = trades[idx];
     
-    // Si está archivado y tiene ID de Google Sheets, podemos marcarlo como eliminado
-    if (trade.archivado && trade.datos.id_trade) {
-        console.log(`Trade ${trade.nombre} tenía ID_Trade: ${trade.datos.id_trade}`);
-    }
+    console.log(`Eliminando trade ${trade.nombre} ID_Trade: ${trade.datos.id_trade}`);
     
-    // Eliminar localmente
     trades = trades.filter(t => t.id !== id);
     save();
     volverHistorial();
@@ -677,7 +678,7 @@ function volverHistorial() {
     abrirHistorial();
 }
 
-// ==================== MIGRACIÓN SIN "ID MIGRADO" ====================
+// ==================== MIGRACIÓN SIMPLIFICADA ====================
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
     trades.forEach(t => {
@@ -686,30 +687,21 @@ function migrarTradesAntiguos() {
             cambioRealizado = true;
         }
         
-        // Si el ID es inválido, generar uno nuevo
         if (!t.id || t.id === 0) {
             t.id = Date.now() + Math.floor(Math.random() * 1000);
             cambioRealizado = true;
         }
-        
-        // ⚠️ IMPORTANTE: NO crear IDs de "migrado"
-        // Los IDs reales vendrán de Google Sheets cuando se archive
     });
     if (cambioRealizado) {
         save();
-        console.log("✅ Migración de trades antiguos completada (SIN IDs migrados).");
+        console.log("✅ Migración completada");
     }
-}
-
-// ==================== FUNCIÓN: SINCRONIZAR MANUALMENTE ====================
-function sincronizarManual() {
-    mostrarToast("La sincronización es automática al archivar trades.", 'exito');
 }
 
 // Ejecutar automáticamente al cargar la página
 migrarTradesAntiguos();
 
-// ==================== FUNCIONES GLOBALES (TODAS) ====================
+// ==================== FUNCIONES GLOBALES ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
 window.volverHome = volverHome;
@@ -720,7 +712,6 @@ window.volverHistorial = volverHistorial;
 window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
-window.sincronizarManual = sincronizarManual;
 
 // Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
