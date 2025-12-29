@@ -1,4 +1,4 @@
-// URL para Google Sheets - ACTUALIZA ESTO CON LA NUEVA URL DE GOOGLE SCRIPT
+// URL para Google Sheets
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -7,7 +7,6 @@ let currentIdx = null;
 
 const get = id => document.getElementById(id);
 
-// ==================== FUNCIÓN: TOAST ====================
 function mostrarToast(mensaje, tipo = 'exito') {
     const toastExistente = document.getElementById('appToast');
     if (toastExistente) toastExistente.remove();
@@ -25,7 +24,6 @@ function mostrarToast(mensaje, tipo = 'exito') {
     }, 4000);
 }
 
-// ==================== FUNCIÓN: EXPORTAR BACKUP ====================
 function exportarBackup() {
     try {
         const datos = {
@@ -54,7 +52,6 @@ function exportarBackup() {
     }
 }
 
-// SESIÓN ACTUAL
 function actualizarSesion() {
     const el = get("sesionActual");
     if (!el) return;
@@ -69,7 +66,6 @@ function actualizarSesion() {
     el.textContent = sesion + " · " + ahora.toTimeString().slice(0, 5);
 }
 
-// DURACIÓN D/H
 function normalizarDuracion() {
     const dur = get("duracion");
     if (!dur) return;
@@ -89,7 +85,6 @@ function normalizarDuracion() {
     dur.value = v;
 }
 
-// GUARDAR CAMBIOS (con autosave)
 function guardarCambios(mostrarNotificacion = false) {
     if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
 
@@ -110,7 +105,6 @@ function guardarCambios(mostrarNotificacion = false) {
 
     save();
 
-    // Indicador de autoguardado
     if (mostrarNotificacion) {
         const indicador = document.getElementById('autosaveIndicator');
         if (indicador) {
@@ -136,7 +130,6 @@ function calcularRatio() {
     guardarCambios();
 }
 
-// INIT
 document.addEventListener("DOMContentLoaded", () => {
     const slInput = get("sl");
     const tpInput = get("tp");
@@ -164,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // AUTOGUARDADO CADA 5 SEGUNDOS
     setInterval(() => {
         if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
             guardarCambios();
@@ -220,7 +212,6 @@ function renderColores() {
     });
 }
 
-// ==================== FUNCIÓN CORREGIDA: GUARDAR PAR ====================
 function guardarPar() {
     const inputPar = get("inputPar");
     const colorPar = get("colorPar");
@@ -235,11 +226,10 @@ function guardarPar() {
 
     const ahora = new Date();
     
-    // ¡¡¡CORRECCIÓN CRÍTICA!!! Generar ID único con Date.now()
-    const idUnico = Date.now(); // Esto genera un número único como 1739645678901
+    const idUnico = Date.now();
     
     const nuevoTrade = {
-        id: idUnico,  // ¡USAR el idUnico generado!
+        id: idUnico,
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -364,7 +354,6 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -374,7 +363,6 @@ async function archivarPar() {
     normalizarDuracion();
     guardarCambios();
     
-    // Determinar si es una actualización
     const trade = trades[currentIdx];
     const esUnaActualizacion = trade.archivadoPreviamente === true;
     
@@ -386,9 +374,8 @@ async function archivarPar() {
     try {
         const datos = trade.datos;
 
-        // ¡¡¡CORRECCIÓN CRÍTICA!!! Incluir 'accion' cuando sea actualización
         const tradeData = {
-            id: trade.id,
+            id: esUnaActualizacion ? trade.datos.idGoogleSheets : '',
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -407,7 +394,6 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // ¡¡¡AGREGAR ESTA LÍNEA!!! Enviar bandera de actualización
         if (esUnaActualizacion) {
             tradeData.accion = 'actualizar';
         }
@@ -551,7 +537,6 @@ function verDetalle(i) {
     get("detalleContenido").innerHTML = html;
 }
 
-// ==================== FUNCIÓN: RESTABLECER ====================
 function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) return;
@@ -599,7 +584,6 @@ function volverHistorial() {
     abrirHistorial();
 }
 
-// ==================== MIGRACIÓN PARA TRADES ANTIGUOS ====================
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
     trades.forEach(t => {
@@ -607,7 +591,6 @@ function migrarTradesAntiguos() {
             t.archivadoPreviamente = t.archivado;
             cambioRealizado = true;
         }
-        // Si el ID es inválido, generar uno nuevo
         if (!t.id || t.id === 0) {
             t.id = Date.now() + Math.floor(Math.random() * 1000);
             cambioRealizado = true;
@@ -619,10 +602,8 @@ function migrarTradesAntiguos() {
     }
 }
 
-// Ejecutar automáticamente al cargar la página
 migrarTradesAntiguos();
 
-// ==================== FUNCIONES GLOBALES (TODAS) ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
 window.volverHome = volverHome;
@@ -634,7 +615,6 @@ window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
 
-// Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker.register("sw.js")
