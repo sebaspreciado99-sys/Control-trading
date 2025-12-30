@@ -1,3 +1,4 @@
+
 const CACHE_NAME = "trading-journal-v1";
 const URLS_TO_CACHE = [
   "./",
