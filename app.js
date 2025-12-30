@@ -1,5 +1,6 @@
 // ==================== APP.JS COMPLETO ====================
-// URL para Google Sheets
+// CORREGIDO: Usa ID_Local (timestamp) para identificar trades en Sheets
+
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
@@ -234,10 +235,12 @@ function guardarPar() {
 
     const ahora = new Date();
     
+    // Usar timestamp como ID único local
     const idUnico = Date.now();
     
     const nuevoTrade = {
-        id: idUnico,
+        id: idUnico,                    // ID_Local (timestamp) - único
+        id_sheets: null,                // ID_Sheets (consecutivo) - se asigna desde Sheets
         nombre: nom,
         color: colorPar.value,
         archivado: false,
@@ -246,7 +249,7 @@ function guardarPar() {
             fecha: ahora.toISOString().split("T")[0],
             hora: ahora.getHours().toString().padStart(2, "0") + ":" +
                   ahora.getMinutes().toString().padStart(2, "0"),
-            id_trade: null
+            id_trade: null             // Mantenido por compatibilidad
         }
     };
 
@@ -294,9 +297,10 @@ function showHome() {
 
         let info = `<div style="font-size:1.2rem;">${t.nombre}</div>`;
         
-        if (t.datos.id_trade && !isNaN(t.datos.id_trade)) {
+        // Mostrar ID_Sheets si existe
+        if (t.id_sheets) {
             info += `<div style="color:#3b82f6; font-weight:bold; font-size:0.9rem; margin-top:3px;">
-                ID: ${t.datos.id_trade}
+                ID: ${t.id_sheets}
             </div>`;
         }
         
@@ -382,27 +386,26 @@ async function archivarPar() {
 
     const trade = trades[currentIdx];
     
-    // CORRECCION: Solo es actualizacion si tiene ID_TRADE valido
-    const tieneIdValido = trade.datos.id_trade && !isNaN(trade.datos.id_trade) && trade.datos.id_trade > 0;
-    const esUnaActualizacion = trade.archivadoPreviamente === true && tieneIdValido;
+    // Determinar si es actualización o nuevo registro
+    const esActualizacion = trade.archivadoPreviamente === true;
+    
+    console.log("Enviando trade:", trade.nombre);
+    console.log("Es actualizacion?", esActualizacion);
+    console.log("ID_Local (trade.id):", trade.id);
+    console.log("ID_Sheets anterior:", trade.id_sheets);
 
-    console.log("Enviando trade:", trade.nombre,
-                "Actualizacion?", esUnaActualizacion,
-                "ID_Trade actual:", trade.datos.id_trade,
-                "ID valido?", tieneIdValido);
-
-    // Guardar datos originales por si necesitamos restaurar
+    // Guardar datos originales
     const datosOriginales = {
         resultado: trade.datos.resultado || '',
-        id_trade: trade.datos.id_trade || null
+        id_sheets: trade.id_sheets || null
     };
 
-    // Actualizar estado del trade ANTES de enviar
+    // Actualizar estado del trade
     trade.archivado = true;
     trade.archivadoPreviamente = true;
     trade.datos.archivedAt = Date.now();
 
-    // Restaurar resultado si se perdio
+    // Restaurar resultado si se perdió
     if (!trade.datos.resultado && datosOriginales.resultado) {
         trade.datos.resultado = datosOriginales.resultado;
     }
@@ -413,6 +416,7 @@ async function archivarPar() {
         const datos = trade.datos;
 
         const tradeData = {
+            id_local: trade.id,         // ID_Local = timestamp único
             par: trade.nombre || '',
             fecha: datos.fecha || '',
             hora: datos.hora || '',
@@ -431,21 +435,12 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
 
-        // CORRECCION: Solo enviar como actualizacion si tiene ID valido
-        if (esUnaActualizacion) {
+        // Solo enviar accion si es actualización
+        if (esActualizacion) {
             tradeData.accion = 'actualizar';
-            // Si es actualizacion, ENVIAR EL ID para identificar el registro
-            if (trade.datos.id_trade) {
-                tradeData.id = trade.datos.id_trade;
-                console.log("ACTUALIZANDO trade existente ID:", tradeData.id);
-            } else {
-                console.log("ERROR: Trade marcado como actualizacion pero sin ID, se creara nuevo");
-                // Forzar como nuevo si no tiene ID
-                delete tradeData.accion;
-            }
+            console.log("Enviando como ACTUALIZACION con ID_Local:", trade.id);
         } else {
-            console.log("CREANDO nuevo trade (sin ID)");
-            // Para nuevo trade: NO enviar 'id' ni 'accion'
+            console.log("Enviando como NUEVO registro");
         }
 
         const params = new URLSearchParams();
@@ -457,14 +452,17 @@ async function archivarPar() {
 
         console.log("Datos enviados:", Object.fromEntries(params));
 
+        // Enviar a Google Sheets
         await fetch(URL_SHEETS, {
             method: 'POST',
             body: params,
             mode: 'no-cors'
         });
 
-        // CORRECCION: Feedback mas claro segun el tipo de operacion
-        if (esUnaActualizacion) {
+        // Nota: Con no-cors no podemos leer la respuesta
+        // El ID_Sheets se obtendrá cuando el usuario vea el historial
+        
+        if (esActualizacion) {
             mostrarToast("Trade actualizado correctamente", 'exito');
         } else {
             mostrarToast("Nuevo trade archivado", 'exito');
@@ -472,9 +470,8 @@ async function archivarPar() {
 
     } catch (error) {
         console.error('Error al enviar:', error);
-        // CORRECCION: Mejorar mensaje de error
-        if (esUnaActualizacion) {
-            mostrarToast("Error al actualizar en Sheets (archivado localmente)", 'error');
+        if (esActualizacion) {
+            mostrarToast("Error al actualizar (archivado localmente)", 'error');
         } else {
             mostrarToast("Trade archivado localmente", 'exito');
         }
@@ -545,9 +542,11 @@ function abrirHistorial() {
         const d = document.createElement("div");
         d.className = "historial-item";
         
-        const idInfo = (t.datos.id_trade && !isNaN(t.datos.id_trade)) ? 
+        // Mostrar ID_Sheets si existe, sino mostrar ID_Local
+        const idDisplay = t.id_sheets ? `Sheets: ${t.id_sheets}` : `Local: ${t.id}`;
+        const idInfo = t.id_sheets ? 
             `<span style="background:#3b82f6; color:white; border-radius:4px; padding:2px 6px; font-size:0.7rem; margin-right:5px; font-weight:bold;">
-                #${t.datos.id_trade}
+                #${t.id_sheets}
             </span>` : '';
         
         d.innerHTML = `
@@ -561,6 +560,7 @@ function abrirHistorial() {
           <span class="badge ${statusClass}">${t.datos.resultado || "S/R"}</span>
         </div>
         <small style="color:var(--subtext);">${t.datos.fecha || "---"} ${t.datos.hora || ""} | ${t.datos.tipo || ""} | Ratio: ${t.datos.ratio || "--"}</small>
+        <small style="color:#3b82f6; display:block; margin-top:4px;">${idDisplay}</small>
       </div>
       <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">⇩</button>
     `;
@@ -586,12 +586,16 @@ function verDetalle(i) {
     <span style="background:${t.color}; width:22px; height:22px; border-radius:6px; display:inline-block;"></span>
   </div>`;
 
-    if (t.datos.id_trade) {
-        html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0; background:rgba(59, 130, 246, 0.1);">
-      <span style="color:var(--subtext); font-weight:bold;">ID_TRADE</span>
-      <span style="font-weight:bold; color:#3b82f6;">${t.datos.id_trade}</span>
+    // Mostrar IDs
+    html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0; background:rgba(59, 130, 246, 0.1);">
+      <span style="color:var(--subtext); font-weight:bold;">ID Sheets</span>
+      <span style="font-weight:bold; color:#3b82f6;">${t.id_sheets || 'Pendiente'}</span>
     </div>`;
-    }
+    
+    html += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(43,49,57,0.35); padding:8px 0;">
+      <span style="color:var(--subtext); font-weight:bold;">ID Local</span>
+      <span style="font-weight:bold;">${t.id}</span>
+    </div>`;
 
     for (const key in t.datos) {
         if (key === "archivedAt" || key === "id_trade") continue;
@@ -613,7 +617,7 @@ function verDetalle(i) {
     get("detalleContenido").innerHTML = html;
 }
 
-// ==================== FUNCION CORREGIDA: RESTABLECER ====================
+// ==================== FUNCION: RESTABLECER ====================
 function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) {
@@ -628,9 +632,7 @@ function restablecer(id) {
         return;
     }
     
-    console.log("Restableciendo:", trade.nombre, 
-                "Resultado:", trade.datos.resultado,
-                "ID_Trade:", trade.datos.id_trade);
+    console.log("Restableciendo:", trade.nombre, "ID_Local:", trade.id, "ID_Sheets:", trade.id_sheets);
     
     trade.archivado = false;
     
@@ -640,7 +642,7 @@ function restablecer(id) {
     
     save();
     
-    mostrarToast(`Trade restablecido ${trade.datos.id_trade ? 'ID: ' + trade.datos.id_trade : ''}`, 'exito');
+    mostrarToast(`Trade restablecido (ID: ${trade.id_sheets || trade.id})`, 'exito');
     
     abrirHistorial();
 }
@@ -653,7 +655,7 @@ function eliminarUno(id) {
     
     const trade = trades[idx];
     
-    console.log(`Eliminando trade ${trade.nombre} ID_Trade: ${trade.datos.id_trade}`);
+    console.log(`Eliminando trade ${trade.nombre} ID_Local: ${trade.id} ID_Sheets: ${trade.id_sheets}`);
     
     trades = trades.filter(t => t.id !== id);
     save();
@@ -692,6 +694,12 @@ function volverHistorial() {
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
     trades.forEach(t => {
+        // Si no tiene id_sheets, crearlo desde id_trade si existe
+        if (t.id_sheets === undefined) {
+            t.id_sheets = t.datos.id_trade || null;
+            cambioRealizado = true;
+        }
+        
         if (t.archivadoPreviamente === undefined) {
             t.archivadoPreviamente = t.archivado;
             cambioRealizado = true;
