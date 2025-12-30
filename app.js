@@ -8,7 +8,7 @@ let currentIdx = null;
 
 const get = id => document.getElementById(id);
 
-// ==================== FUNCIÓN: TOAST ====================
+// ==================== FUNCION: TOAST ====================
 function mostrarToast(mensaje, tipo = 'exito') {
     const toastExistente = document.getElementById('appToast');
     if (toastExistente) toastExistente.remove();
@@ -26,7 +26,7 @@ function mostrarToast(mensaje, tipo = 'exito') {
     }, 4000);
 }
 
-// ==================== FUNCIÓN: EXPORTAR BACKUP ====================
+// ==================== FUNCION: EXPORTAR BACKUP ====================
 function exportarBackup() {
     try {
         const datos = {
@@ -48,14 +48,14 @@ function exportarBackup() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        mostrarToast('📁 Backup exportado correctamente', 'exito');
+        mostrarToast('Backup exportado correctamente', 'exito');
     } catch (error) {
         console.error('Error exportando backup:', error);
-        mostrarToast('❌ Error al exportar backup', 'error');
+        mostrarToast('Error al exportar backup', 'error');
     }
 }
 
-// SESIÓN ACTUAL
+// SESION ACTUAL
 function actualizarSesion() {
     const el = get("sesionActual");
     if (!el) return;
@@ -63,14 +63,14 @@ function actualizarSesion() {
     const ahora = new Date();
     const hora = ahora.getUTCHours();
 
-    let sesion = "Sesión Asia";
-    if (hora >= 7 && hora < 13) sesion = "Sesión Londres";
-    else if (hora >= 13 && hora < 21) sesion = "Sesión New York";
+    let sesion = "Sesion Asia";
+    if (hora >= 7 && hora < 13) sesion = "Sesion Londres";
+    else if (hora >= 13 && hora < 21) sesion = "Sesion New York";
 
     el.textContent = sesion + " · " + ahora.toTimeString().slice(0, 5);
 }
 
-// DURACIÓN D/H
+// DURACION D/H
 function normalizarDuracion() {
     const dur = get("duracion");
     if (!dur) return;
@@ -114,7 +114,7 @@ function guardarCambios(mostrarNotificacion = false) {
     if (mostrarNotificacion) {
         const indicador = document.getElementById('autosaveIndicator');
         if (indicador) {
-            indicador.textContent = '✓ Guardado';
+            indicador.textContent = 'Guardado';
             indicador.style.opacity = '1';
             setTimeout(() => indicador.style.opacity = '0', 1500);
         }
@@ -219,7 +219,7 @@ function renderColores() {
     });
 }
 
-// ==================== FUNCIÓN: GUARDAR PAR ====================
+// ==================== FUNCION: GUARDAR PAR ====================
 function guardarPar() {
     const inputPar = get("inputPar");
     const colorPar = get("colorPar");
@@ -256,7 +256,7 @@ function guardarPar() {
     updateDatalist();
     showHome();
     abrirForm(trades.length - 1);
-    mostrarToast(`✅ Nuevo par creado: ${nom}`, 'exito');
+    mostrarToast(`Nuevo par creado: ${nom}`, 'exito');
 }
 
 function showHome() {
@@ -370,7 +370,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
+// ==================== FUNCION CORREGIDA: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -379,27 +379,34 @@ async function archivarPar() {
 
     normalizarDuracion();
     guardarCambios();
-    
+
     const trade = trades[currentIdx];
-    const esUnaActualizacion = trade.archivadoPreviamente === true;
     
-    console.log("📤 Enviando trade:", trade.nombre, 
-                "¿Actualización?", esUnaActualizacion, 
-                "ID_Trade actual:", trade.datos.id_trade);
-    
+    // CORRECCION: Solo es actualizacion si tiene ID_TRADE valido
+    const tieneIdValido = trade.datos.id_trade && !isNaN(trade.datos.id_trade) && trade.datos.id_trade > 0;
+    const esUnaActualizacion = trade.archivadoPreviamente === true && tieneIdValido;
+
+    console.log("Enviando trade:", trade.nombre,
+                "Actualizacion?", esUnaActualizacion,
+                "ID_Trade actual:", trade.datos.id_trade,
+                "ID valido?", tieneIdValido);
+
+    // Guardar datos originales por si necesitamos restaurar
     const datosOriginales = {
         resultado: trade.datos.resultado || '',
         id_trade: trade.datos.id_trade || null
     };
-    
-    trade.datos.archivedAt = Date.now();
+
+    // Actualizar estado del trade ANTES de enviar
     trade.archivado = true;
     trade.archivadoPreviamente = true;
-    
+    trade.datos.archivedAt = Date.now();
+
+    // Restaurar resultado si se perdio
     if (!trade.datos.resultado && datosOriginales.resultado) {
         trade.datos.resultado = datosOriginales.resultado;
     }
-    
+
     save();
 
     try {
@@ -423,20 +430,21 @@ async function archivarPar() {
             rNegativo: datos.rNegativo || '',
             rPositivo: datos.rPositivo || ''
         };
-        
-        // ⚠️ DIFERENCIA CRÍTICA ENTRE NUEVO Y ACTUALIZACIÓN
+
+        // CORRECCION: Solo enviar como actualizacion si tiene ID valido
         if (esUnaActualizacion) {
             tradeData.accion = 'actualizar';
-            
-            // ENVIAR EL ID_Trade SI EXISTE
+            // Si es actualizacion, ENVIAR EL ID para identificar el registro
             if (trade.datos.id_trade) {
                 tradeData.id = trade.datos.id_trade;
-                console.log("🔁 ACTUALIZANDO trade existente ID:", tradeData.id);
+                console.log("ACTUALIZANDO trade existente ID:", tradeData.id);
             } else {
-                console.log("⚠️ Trade sin id_trade, se buscará por Par+Fecha+Hora");
+                console.log("ERROR: Trade marcado como actualizacion pero sin ID, se creara nuevo");
+                // Forzar como nuevo si no tiene ID
+                delete tradeData.accion;
             }
         } else {
-            console.log("🆕 CREANDO nuevo trade (sin ID)");
+            console.log("CREANDO nuevo trade (sin ID)");
             // Para nuevo trade: NO enviar 'id' ni 'accion'
         }
 
@@ -447,7 +455,7 @@ async function archivarPar() {
             }
         });
 
-        console.log("📤 Datos enviados:", Object.fromEntries(params));
+        console.log("Datos enviados:", Object.fromEntries(params));
 
         await fetch(URL_SHEETS, {
             method: 'POST',
@@ -455,15 +463,21 @@ async function archivarPar() {
             mode: 'no-cors'
         });
 
-        // INTENTAR GUARDAR EL ID ASIGNADO
-        // Para nuevos trades, Google Sheets asignará un ID
-        // Para actualizaciones, mantenemos el ID existente
-        
-        mostrarToast(esUnaActualizacion ? "✅ Trade actualizado" : "✅ Nuevo trade archivado", 'exito');
-        
+        // CORRECCION: Feedback mas claro segun el tipo de operacion
+        if (esUnaActualizacion) {
+            mostrarToast("Trade actualizado correctamente", 'exito');
+        } else {
+            mostrarToast("Nuevo trade archivado", 'exito');
+        }
+
     } catch (error) {
-        console.error('❌ Error al enviar:', error);
-        mostrarToast("✅ Trade archivado localmente", 'exito');
+        console.error('Error al enviar:', error);
+        // CORRECCION: Mejorar mensaje de error
+        if (esUnaActualizacion) {
+            mostrarToast("Error al actualizar en Sheets (archivado localmente)", 'error');
+        } else {
+            mostrarToast("Trade archivado localmente", 'exito');
+        }
     }
 
     volverHome();
@@ -548,7 +562,7 @@ function abrirHistorial() {
         </div>
         <small style="color:var(--subtext);">${t.datos.fecha || "---"} ${t.datos.hora || ""} | ${t.datos.tipo || ""} | Ratio: ${t.datos.ratio || "--"}</small>
       </div>
-      <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">↩</button>
+      <button onclick="restablecer(${t.id})" style="background:transparent; color:#f0b90b; font-size:20px; border:none; padding:10px; cursor:pointer;">⇩</button>
     `;
         d.querySelector(".historial-info").onclick = () => verDetalle(t.origIdx);
         cont.appendChild(d);
@@ -599,7 +613,7 @@ function verDetalle(i) {
     get("detalleContenido").innerHTML = html;
 }
 
-// ==================== FUNCIÓN CORREGIDA: RESTABLECER ====================
+// ==================== FUNCION CORREGIDA: RESTABLECER ====================
 function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) {
@@ -610,7 +624,7 @@ function restablecer(id) {
     const trade = trades[idx];
     
     if (!trade.archivado) {
-        mostrarToast("Este trade ya está activo", 'error');
+        mostrarToast("Este trade ya esta activo", 'error');
         return;
     }
     
@@ -626,13 +640,13 @@ function restablecer(id) {
     
     save();
     
-    mostrarToast(`✅ Trade restablecido ${trade.datos.id_trade ? 'ID: ' + trade.datos.id_trade : ''}`, 'exito');
+    mostrarToast(`Trade restablecido ${trade.datos.id_trade ? 'ID: ' + trade.datos.id_trade : ''}`, 'exito');
     
     abrirHistorial();
 }
 
 function eliminarUno(id) {
-    if (!confirm("¿Estás seguro de eliminar permanentemente este trade?")) return;
+    if (!confirm("Estas seguro de eliminar permanentemente este trade?")) return;
     
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) return;
@@ -653,7 +667,7 @@ function eliminarSeleccionados() {
         mostrarToast("No hay trades seleccionados", 'error');
         return;
     }
-    if (!confirm(`¿Estás seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
+    if (!confirm(`Estas seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
 
     const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
     trades = trades.filter(t => !ids.includes(t.id));
@@ -674,7 +688,7 @@ function volverHistorial() {
     abrirHistorial();
 }
 
-// ==================== MIGRACIÓN ====================
+// ==================== MIGRACION ====================
 function migrarTradesAntiguos() {
     let cambioRealizado = false;
     trades.forEach(t => {
@@ -690,11 +704,11 @@ function migrarTradesAntiguos() {
     });
     if (cambioRealizado) {
         save();
-        console.log("✅ Migración completada");
+        console.log("Migracion completada");
     }
 }
 
-// Ejecutar automáticamente al cargar la página
+// Ejecutar automaticamente al cargar la pagina
 migrarTradesAntiguos();
 
 // ==================== FUNCIONES GLOBALES ====================
