@@ -1,102 +1,183 @@
+
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Trading</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📈 TRADING 📉</title>
+
+  <!-- Manifest PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0c10">
+  <link rel="icon" type="image/png" href="icon-192.png">
+
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Control de Trading</h1>
-
-        <form id="form-trading">
-            <!-- CAMBIO AQUÍ: Añadir un campo oculto para el ID -->
-            <input type="hidden" id="tradingId" name="ID"> 
-
-            <div class="form-group">
-                <label for="fecha">Fecha:</label>
-                <input type="date" id="fecha" name="Fecha" required>
-            </div>
-            <div class="form-group">
-                <label for="moneda">Par de Moneda:</label>
-                <input type="text" id="moneda" name="Par de Moneda" required>
-            </div>
-            <div class="form-group">
-                <label for="monto">Monto:</label>
-                <input type="number" id="monto" name="Monto" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label for="accion">Acción:</label>
-                <select id="accion" name="Accion" required>
-                    <option value="">Seleccione</option>
-                    <option value="Compra">Compra</option>
-                    <option value="Venta">Venta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="p_entrada">Precio de Entrada:</label>
-                <input type="number" id="p_entrada" name="Precio de Entrada" step="0.00001" required>
-            </div>
-            <div class="form-group">
-                <label for="p_salida">Precio de Salida:</label>
-                <input type="number" id="p_salida" name="Precio de Salida" step="0.00001">
-            </div>
-            <div class="form-group">
-                <label for="stoploss">Stop Loss:</label>
-                <input type="number" id="stoploss" name="Stop Loss" step="0.00001">
-            </div>
-            <div class="form-group">
-                <label for="take_profit">Take Profit:</label>
-                <input type="number" id="take_profit" name="Take Profit" step="0.00001">
-            </div>
-            <div class="form-group">
-                <label for="resultado">Resultado ($):</label>
-                <input type="number" id="resultado" name="Resultado ($)" step="0.01">
-            </div>
-            <div class="form-group">
-                <label for="comision">Comisión ($):</label>
-                <input type="number" id="comision" name="Comisión ($)" step="0.01" value="0">
-            </div>
-            <div class="form-group">
-                <label for="notas">Notas:</label>
-                <textarea id="notas" name="Notas"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="captura">URL Captura:</label>
-                <input type="url" id="captura" name="URL Captura">
-            </div>
-
-            <button type="submit" id="btn-guardar">Guardar Trading</button>
-        </form>
-
-        <div class="table-container">
-            <h2>Registros de Trading</h2>
-            <table id="trading-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Fecha</th>
-                        <th>Par de Moneda</th>
-                        <th>Monto</th>
-                        <th>Acción</th>
-                        <th>P. Entrada</th>
-                        <th>P. Salida</th>
-                        <th>Stop Loss</th>
-                        <th>Take Profit</th>
-                        <th>Resultado ($)</th>
-                        <th>Comisión ($)</th>
-                        <th>Notas</th>
-                        <th>URL Captura</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Los datos se cargarán aquí -->
-                </tbody>
-            </table>
-        </div>
+  <header>
+    <div class="header-glow">
+      <h1>📈 TRADING 📉</h1>
     </div>
-    <script src="script.js"></script>
+  </header>
+
+  <!-- HOME: crear par y ver lista -->
+  <section id="home">
+    <div class="card-glass premium">
+      <div class="input-group">
+        <p class="label-input glow">🎯 Activo Financiero</p>
+        <input id="inputPar" list="misPares" placeholder="Ej: BTCUSDT, EURUSD...">
+        <datalist id="misPares"></datalist>
+      </div>
+      
+      <div class="input-group">
+        <p class="label-input glow">🎨 Etiqueta de Color</p>
+        <div id="coloresRapidos"></div>
+        <input type="color" id="colorPar" value="#f0b90b" class="color-picker">
+      </div>
+      
+      <button onclick="guardarPar()" class="btn-main premium">
+        <span>➕</span> Iniciar Registro
+      </button>
+    </div>
+
+    <div id="listaPares"></div>
+  </section>
+
+  <!-- FORMULARIO DE OPERACIÓN -->
+  <section id="operaciones" class="oculto">
+    <h2 id="tituloPar" class="titulo-premium"></h2>
+    <div class="card-glass premium">
+        <div id="coloresRapidosEditar" class="color-grid"></div>
+        <input type="color" id="colorAuto" class="color-picker">
+        
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">📅 Fecha</p>
+              <input type="date" id="fecha">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">⏰ Hora</p>
+              <input type="time" id="hora">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">📈 Tipo</p>
+              <select id="tipo">
+                <option>BUY</option>
+                <option>SELL</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">🔥 Gatillo</p>
+              <select id="gatillo">
+                <option>G3V</option>
+                <option>ENVOLVENTE</option>
+                <option>PINBAR</option>
+              </select>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">🛑 SL Pips</p>
+              <input type="number" placeholder="SL Pips" id="sl" step="0.01" min="0">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">🎯 TP Pips</p>
+              <input type="number" placeholder="TP Pips" id="tp" step="0.01" min="0">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">RATIO</p>
+              <input placeholder="RATIO" id="ratio" readonly class="input-readonly premium">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">MAX RATIO</p>
+              <input placeholder="MAX RATIO" id="maxRatio" step="0.01">
+            </div>
+        </div>
+        
+        <div class="input-group">
+          <p class="label-input glow">🏆 RESULTADO</p>
+          <input placeholder="WIN / LOSS / BE" id="resultado">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">⏱️ DURACIÓN</p>
+          <input placeholder="Ej: 1D 2H" id="duracion">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">🔗 LINK DIARIO</p>
+          <input type="url" placeholder="URL de captura diaria" id="diario">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">🔗 LINK HORARIO</p>
+          <input type="url" placeholder="URL de captura H1, M15..." id="horario">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">📊 PORCENTAJE %</p>
+          <input placeholder="Ej: 0.5, 1, 2..." id="porcentaje">
+        </div>
+        
+        <div class="grid-2 r-grid">
+            <div class="input-group">
+              <p class="label-input glow">📉 R NEG</p>
+              <input placeholder="R NEG" id="rNegativo" class="input-danger">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">📈 R POS</p>
+              <input placeholder="R POS" id="rPositivo" class="input-success">
+            </div>
+        </div>
+        
+        <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
+        <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
+    </div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section id="historial" class="oculto">
+    <h2 class="titulo-premium">📁 HISTORIAL</h2>
+    
+    <div class="card-glass premium filter-panel">
+        <input 
+          type="text" 
+          id="filtroNombre" 
+          placeholder="🔍 Buscar por nombre..." 
+          oninput="abrirHistorial()" 
+          class="input-search">
+        <input type="date" id="filtroFecha" onchange="abrirHistorial()">
+        <button onclick="limpiarFiltros()" class="btn-ghost">✨ Limpiar</button>
+    </div>
+
+    <div id="resumenGlobal" class="resumen-premium"></div>
+    <button onclick="eliminarSeleccionados()" class="btn-danger premium">🗑 Borrar Seleccionados</button>
+    <div id="historialContenido"></div>
+    <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
+  </section>
+
+  <!-- DETALLE -->
+  <section id="detalle" class="oculto">
+    <h2 id="detalleTitulo" class="titulo-premium"></h2>
+    <div id="detalleContenido"></div>
+    <button onclick="volverHistorial()" class="btn-secondary premium">⬅ Volver</button>
+  </section>
+
+  <!-- Sesión actual -->
+  <div id="sesionActual"></div>
+
+  <!-- Botón flotante historial -->
+  <button id="btnHistorial" onclick="abrirHistorial()" class="fab-premium">📁</button>
+
+  <script src="app.js"></script>
 </body>
 </html>
