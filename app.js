@@ -1,6 +1,6 @@
-// ==================== APP.JS COMPLETO (CON VALIDACIÓN DE ID) ====================
-// URL para Google Sheets
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
+// ==================== APP.JS COMPLETO CON ELIMINACIÓN EN SHEETS ====================
+// URL para Google Sheets (¡ACTUALIZAR ESTA URL DESPUÉS DE PUBLICAR NUEVA VERSIÓN!)
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
@@ -452,7 +452,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN CORREGIDA: ARCHIVAR PAR ====================
+// ==================== FUNCIÓN: ARCHIVAR PAR ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -565,6 +565,106 @@ async function archivarPar() {
     }
 
     volverHome();
+}
+
+// ==================== FUNCIÓN PARA ELIMINAR EN SHEETS ====================
+async function eliminarEnSheets(idTrade) {
+  if (!idTrade || idTrade === '') {
+    console.log("ℹ️ No hay ID para eliminar en Sheets");
+    return false;
+  }
+  
+  try {
+    const params = new URLSearchParams();
+    params.append('accion', 'eliminar');
+    params.append('id', idTrade);
+    
+    console.log(`🗑️ Enviando solicitud de eliminación a Sheets para ID: ${idTrade}`);
+    
+    const respuesta = await fetch(URL_SHEETS, {
+      method: 'POST',
+      body: params
+    });
+    
+    const textoRespuesta = await respuesta.text();
+    console.log("📥 Respuesta de eliminación:", textoRespuesta);
+    
+    if (textoRespuesta.includes('EXITO') || textoRespuesta.includes('INFO')) {
+      mostrarToast(`✅ Trade eliminado también en Google Sheets (ID: ${idTrade})`, 'exito');
+      return true;
+    } else {
+      mostrarToast(`⚠️ Eliminado localmente, pero error en Sheets: ${textoRespuesta}`, 'error');
+      return false;
+    }
+    
+  } catch (error) {
+    console.error('❌ Error al eliminar en Sheets:', error);
+    mostrarToast('✅ Eliminado localmente, pero no se pudo conectar con Sheets', 'exito');
+    return false;
+  }
+}
+
+// ==================== FUNCIÓN MODIFICADA: eliminarUno ====================
+async function eliminarUno(id) {
+  if (!confirm("¿Estás seguro de eliminar permanentemente este trade?\n\nSe marcará como 'ELIMINADO' en Google Sheets.")) return;
+  
+  const idx = trades.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  
+  const trade = trades[idx];
+  const idTradeParaSheets = trade.datos.id_trade;
+  
+  console.log(`Eliminando trade ${trade.nombre} ID_Trade: ${idTradeParaSheets}`);
+  
+  // 1. Primero intentar eliminar en Google Sheets (si tiene ID)
+  if (idTradeParaSheets) {
+    await eliminarEnSheets(idTradeParaSheets);
+  }
+  
+  // 2. Luego eliminar localmente
+  trades = trades.filter(t => t.id !== id);
+  save();
+  
+  // Actualizar la vista
+  if (window.location.hash.includes('#historial') || get('detalle')?.classList.contains('oculto') === false) {
+    volverHistorial();
+  } else {
+    abrirHistorial();
+  }
+}
+
+// ==================== FUNCIÓN MODIFICADA: eliminarSeleccionados ====================
+async function eliminarSeleccionados() {
+  const sels = document.querySelectorAll(".sel-trade:checked");
+  if (sels.length === 0) {
+    mostrarToast("No hay trades seleccionados", 'error');
+    return;
+  }
+  
+  const mensaje = sels.length === 1 
+    ? "¿Estás seguro de eliminar permanentemente este trade?\n\nSe marcará como 'ELIMINADO' en Google Sheets."
+    : `¿Estás seguro de eliminar ${sels.length} trades permanentemente?\n\nSe marcarán como 'ELIMINADO' en Google Sheets.`;
+  
+  if (!confirm(mensaje)) return;
+
+  const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
+  const tradesAEliminar = trades.filter(t => ids.includes(t.id));
+  
+  // 1. Primero intentar eliminar en Google Sheets (solo los que tienen ID)
+  for (const trade of tradesAEliminar) {
+    if (trade.datos.id_trade) {
+      await eliminarEnSheets(trade.datos.id_trade);
+      // Pequeña pausa para no saturar las solicitudes
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+  
+  // 2. Luego eliminar localmente
+  trades = trades.filter(t => !ids.includes(t.id));
+  save();
+  
+  abrirHistorial();
+  mostrarToast(`${sels.length} trades eliminados`, 'exito');
 }
 
 function limpiarFiltros() {
@@ -697,7 +797,7 @@ function verDetalle(i) {
     get("detalleContenido").innerHTML = html;
 }
 
-// ==================== FUNCIÓN CORREGIDA: RESTABLECER ====================
+// ==================== FUNCIÓN: RESTABLECER ====================
 function restablecer(id) {
     const idx = trades.findIndex(t => t.id === id);
     if (idx === -1) {
@@ -726,49 +826,6 @@ function restablecer(id) {
     
     mostrarToast(`✅ Trade restablecido ${trade.datos.id_trade ? 'ID: ' + trade.datos.id_trade : ''}`, 'exito');
     
-    abrirHistorial();
-}
-
-function eliminarUno(id) {
-    if (!confirm("¿Estás seguro de eliminar permanentemente este trade?")) return;
-    
-    const idx = trades.findIndex(t => t.id === id);
-    if (idx === -1) return;
-    
-    const trade = trades[idx];
-    
-    console.log(`Eliminando trade ${trade.nombre} ID_Trade: ${trade.datos.id_trade}`);
-    
-    trades = trades.filter(t => t.id !== id);
-    save();
-    volverHistorial();
-    mostrarToast("Trade eliminado permanentemente", 'exito');
-}
-
-function eliminarSeleccionados() {
-    const sels = document.querySelectorAll(".sel-trade:checked");
-    if (sels.length === 0) {
-        mostrarToast("No hay trades seleccionados", 'error');
-        return;
-    }
-    if (!confirm(`¿Estás seguro de eliminar ${sels.length} trade(s) permanentemente?`)) return;
-
-    const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
-    trades = trades.filter(t => !ids.includes(t.id));
-    save();
-    abrirHistorial();
-    mostrarToast(`${sels.length} trades eliminados`, 'exito');
-}
-
-function volverHome() {
-    if (currentIdx !== null) guardarCambios();
-    currentIdx = null;
-    showHome();
-}
-
-function volverHistorial() {
-    const detalle = get("detalle");
-    if (detalle) detalle.classList.add("oculto");
     abrirHistorial();
 }
 
@@ -827,6 +884,25 @@ function sugerirIdDisponible() {
     return siguienteId.toString();
 }
 
+// ==================== FUNCIÓN: SINCRONIZAR ELIMINADOS DESDE SHEETS ====================
+async function sincronizarEliminadosDesdeSheets() {
+    // Esta función podría implementarse más adelante para leer trades
+    // marcados como ELIMINADO en Sheets y sincronizar la app local
+    console.log("ℹ️ Función de sincronización futura");
+}
+
+function volverHome() {
+    if (currentIdx !== null) guardarCambios();
+    currentIdx = null;
+    showHome();
+}
+
+function volverHistorial() {
+    const detalle = get("detalle");
+    if (detalle) detalle.classList.add("oculto");
+    abrirHistorial();
+}
+
 // ==================== FUNCIONES GLOBALES ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
@@ -839,6 +915,7 @@ window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
 window.sugerirIdDisponible = sugerirIdDisponible;
+window.eliminarEnSheets = eliminarEnSheets;
 
 // Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
