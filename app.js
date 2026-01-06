@@ -1,12 +1,29 @@
-// ==================== APP.JS COMPLETO (CON ID MANUAL EN FORMULARIO) ====================
+// ==================== APP.JS COMPLETO (CON VALIDACIÓN DE ID) ====================
 // URL para Google Sheets
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
 let currentIdx = null;
 
 const get = id => document.getElementById(id);
+
+// ==================== FUNCIÓN: VERIFICAR ID DUPLICADO ====================
+function verificarIdDuplicado(idABuscar) {
+    if (!idABuscar || idABuscar.trim() === "") return false;
+    
+    const idNum = parseInt(idABuscar);
+    if (isNaN(idNum)) return false;
+    
+    // Buscar en todos los trades (activos y archivados)
+    return trades.some(trade => {
+        const tradeId = trade.datos.id_trade;
+        if (tradeId && !isNaN(tradeId) && parseInt(tradeId) === idNum) {
+            return true;
+        }
+        return false;
+    });
+}
 
 // ==================== FUNCIÓN: TOAST ====================
 function mostrarToast(mensaje, tipo = 'exito') {
@@ -90,7 +107,7 @@ function normalizarDuracion() {
     dur.value = v;
 }
 
-// GUARDAR CAMBIOS (con autosave)
+// GUARDAR CAMBIOS (con autosave y validación de ID)
 function guardarCambios(mostrarNotificacion = false) {
     if (currentIdx === null || currentIdx < 0 || currentIdx >= trades.length) return;
 
@@ -106,10 +123,29 @@ function guardarCambios(mostrarNotificacion = false) {
         trades[currentIdx].datos[id] = el.value;
     });
 
-    // ⭐ GUARDAR ID MANUAL DEL FORMULARIO
+    // ⭐ GUARDAR ID MANUAL CON VALIDACIÓN
     const idManualForm = get("idManualForm");
     if (idManualForm && idManualForm.value.trim() !== "") {
-        trades[currentIdx].datos.id_trade = idManualForm.value;
+        const idIngresado = idManualForm.value.trim();
+        
+        // Verificar si el ID ya existe en OTRO trade (no en el actual)
+        const idExisteEnOtroTrade = trades.some((trade, idx) => {
+            if (idx === currentIdx) return false; // No comparar con el mismo trade
+            const tradeId = trade.datos.id_trade;
+            return tradeId && tradeId.toString() === idIngresado;
+        });
+        
+        if (idExisteEnOtroTrade) {
+            mostrarToast(`⚠️ El ID ${idIngresado} ya existe en otro trade`, 'error');
+            idManualForm.style.borderColor = '#ef4444';
+            idManualForm.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.3)';
+            return;
+        } else {
+            // Si no hay duplicado, guardar el ID
+            trades[currentIdx].datos.id_trade = idIngresado;
+            idManualForm.style.borderColor = '';
+            idManualForm.style.boxShadow = '';
+        }
     }
 
     const colorAuto = get("colorAuto");
@@ -149,10 +185,40 @@ document.addEventListener("DOMContentLoaded", () => {
     if (slInput) slInput.addEventListener("input", calcularRatio);
     if (tpInput) tpInput.addEventListener("input", calcularRatio);
 
+    // ⭐ VALIDAR ID EN TIEMPO REAL
+    const idManualForm = get("idManualForm");
+    if (idManualForm) {
+        idManualForm.addEventListener("input", () => {
+            const idIngresado = idManualForm.value.trim();
+            if (idIngresado === "") {
+                idManualForm.style.borderColor = '';
+                idManualForm.style.boxShadow = '';
+                return;
+            }
+            
+            // Verificar si el ID ya existe en OTRO trade
+            const idExisteEnOtroTrade = trades.some((trade, idx) => {
+                if (currentIdx !== null && idx === currentIdx) return false;
+                const tradeId = trade.datos.id_trade;
+                return tradeId && tradeId.toString() === idIngresado;
+            });
+            
+            if (idExisteEnOtroTrade) {
+                idManualForm.style.borderColor = '#ef4444';
+                idManualForm.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.3)';
+                idManualForm.title = `El ID ${idIngresado} ya existe en otro trade`;
+            } else {
+                idManualForm.style.borderColor = '#10b981';
+                idManualForm.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.3)';
+                idManualForm.title = 'ID disponible';
+            }
+        });
+    }
+
     const camposAutoSave = [
         "fecha", "hora", "tipo", "gatillo", "sl", "tp", "maxRatio",
         "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo", "colorAuto", "idManualForm"
+        "rNegativo", "rPositivo", "colorAuto"
     ];
 
     camposAutoSave.forEach(id => {
@@ -337,7 +403,13 @@ function abrirForm(i) {
     
     if (tituloPar) tituloPar.textContent = t.nombre;
     if (colorAuto) colorAuto.value = t.color || "#f0b90b";
-    if (idManualForm) idManualForm.value = t.datos.id_trade || "";
+    if (idManualForm) {
+        idManualForm.value = t.datos.id_trade || "";
+        // Restablecer estilos al abrir el formulario
+        idManualForm.style.borderColor = '';
+        idManualForm.style.boxShadow = '';
+        idManualForm.title = '';
+    }
 
     const campos = [
         "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
@@ -387,6 +459,23 @@ async function archivarPar() {
         return;
     }
 
+    // ⭐ VALIDAR ID DUPLICADO ANTES DE ARCHIVAR
+    const idManualForm = get("idManualForm");
+    if (idManualForm && idManualForm.value.trim() !== "") {
+        const idIngresado = idManualForm.value.trim();
+        
+        const idExisteEnOtroTrade = trades.some((trade, idx) => {
+            if (idx === currentIdx) return false;
+            const tradeId = trade.datos.id_trade;
+            return tradeId && tradeId.toString() === idIngresado;
+        });
+        
+        if (idExisteEnOtroTrade) {
+            mostrarToast(`❌ No se puede archivar. El ID ${idIngresado} ya existe en otro trade`, 'error');
+            return;
+        }
+    }
+
     normalizarDuracion();
     guardarCambios();
     
@@ -423,8 +512,7 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // ⭐ DECISIÓN: Usar ID del formulario manual
-        const idManualForm = get("idManualForm");
+        // DECISIÓN: Usar ID del formulario manual
         const idParaEnviar = idManualForm && idManualForm.value.trim() !== "" ? idManualForm.value : null;
         
         if (idParaEnviar) {
@@ -707,6 +795,38 @@ function migrarTradesAntiguos() {
 // Ejecutar automáticamente al cargar la página
 migrarTradesAntiguos();
 
+// ==================== FUNCIÓN: GENERAR SUGERENCIA DE ID DISPONIBLE ====================
+function sugerirIdDisponible() {
+    const idsExistentes = [];
+    
+    // Recopilar todos los IDs existentes
+    trades.forEach(trade => {
+        const tradeId = trade.datos.id_trade;
+        if (tradeId && !isNaN(tradeId)) {
+            idsExistentes.push(parseInt(tradeId));
+        }
+    });
+    
+    if (idsExistentes.length === 0) {
+        return "1";
+    }
+    
+    // Ordenar IDs
+    idsExistentes.sort((a, b) => a - b);
+    
+    // Buscar el primer ID disponible
+    let siguienteId = 1;
+    for (const id of idsExistentes) {
+        if (id === siguienteId) {
+            siguienteId++;
+        } else if (id > siguienteId) {
+            break;
+        }
+    }
+    
+    return siguienteId.toString();
+}
+
 // ==================== FUNCIONES GLOBALES ====================
 window.guardarPar = guardarPar;
 window.archivarPar = archivarPar;
@@ -718,6 +838,7 @@ window.volverHistorial = volverHistorial;
 window.restablecer = restablecer;
 window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
+window.sugerirIdDisponible = sugerirIdDisponible;
 
 // Registro del Service Worker para PWA
 if ("serviceWorker" in navigator) {
