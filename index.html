@@ -22,16 +22,6 @@
   <!-- HOME: crear par y ver lista -->
   <section id="home">
     <div class="card-glass premium">
-      <!-- ⭐ NUEVO: CAMPO ID MANUAL (PRIMERO) -->
-      <div class="input-group">
-        <p class="label-input glow">🔢 #ID (Manual)</p>
-        <input type="number" id="idManual" placeholder="Ej: 1, 2, 3..." min="1" 
-               style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1);">
-        <small style="color: var(--subtext); font-size: 0.8rem; margin-top: 5px;">
-          Déjalo vacío para auto-generar ID consecutivo
-        </small>
-      </div>
-      
       <div class="input-group">
         <p class="label-input glow">🎯 Activo Financiero</p>
         <input id="inputPar" list="misPares" placeholder="Ej: BTCUSDT, EURUSD...">
@@ -56,19 +46,17 @@
   <section id="operaciones" class="oculto">
     <h2 id="tituloPar" class="titulo-premium"></h2>
     
-    <!-- ⭐ NUEVO: CAMPO ID MANUAL EN FORMULARIO -->
-    <div class="card-glass premium" style="margin-bottom: 15px;">
-      <div class="input-group">
-        <p class="label-input glow">🔢 #ID (Manual / Google Sheets)</p>
-        <input type="number" id="idManualForm" placeholder="ID del trade..." min="1" 
-               style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1);">
-        <small style="color: var(--subtext); font-size: 0.8rem; margin-top: 5px;">
-          Usa el mismo ID de Google Sheets para actualizar
-        </small>
-      </div>
-    </div>
-    
     <div class="card-glass premium">
+        <!-- ⭐ CAMPO ID DENTRO DEL FORMULARIO -->
+        <div class="input-group">
+          <p class="label-input glow">🔢 #ID (Google Sheets)</p>
+          <input type="number" id="idManualForm" placeholder="Deja vacío para auto-generar" min="1" 
+                 style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1);">
+          <small style="color: var(--subtext); font-size: 0.8rem; display: block; margin-top: 5px;">
+            Usa el mismo ID de Google Sheets para actualizar un trade existente
+          </small>
+        </div>
+        
         <div id="coloresRapidosEditar" class="color-grid"></div>
         <input type="color" id="colorAuto" class="color-picker">
         
