@@ -1,6 +1,6 @@
-// ==================== APP.JS COMPLETO ====================
+// ==================== APP.JS COMPLETO (CORREGIDO) ====================
 // URL para Google Sheets
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
@@ -381,24 +381,13 @@ async function archivarPar() {
     guardarCambios();
     
     const trade = trades[currentIdx];
-    const esUnaActualizacion = trade.archivadoPreviamente === true;
     
     console.log("📤 Enviando trade:", trade.nombre, 
-                "¿Actualización?", esUnaActualizacion, 
                 "ID_Trade actual:", trade.datos.id_trade);
-    
-    const datosOriginales = {
-        resultado: trade.datos.resultado || '',
-        id_trade: trade.datos.id_trade || null
-    };
     
     trade.datos.archivedAt = Date.now();
     trade.archivado = true;
     trade.archivadoPreviamente = true;
-    
-    if (!trade.datos.resultado && datosOriginales.resultado) {
-        trade.datos.resultado = datosOriginales.resultado;
-    }
     
     save();
 
@@ -424,20 +413,14 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // ⚠️ DIFERENCIA CRÍTICA ENTRE NUEVO Y ACTUALIZACIÓN
-        if (esUnaActualizacion) {
+        // ⚠️ CORRECCIÓN CRÍTICA: Siempre enviar acción e ID si existe
+        if (trade.datos.id_trade) {
+            tradeData.id = trade.datos.id_trade;
             tradeData.accion = 'actualizar';
-            
-            // ENVIAR EL ID_Trade SI EXISTE
-            if (trade.datos.id_trade) {
-                tradeData.id = trade.datos.id_trade;
-                console.log("🔁 ACTUALIZANDO trade existente ID:", tradeData.id);
-            } else {
-                console.log("⚠️ Trade sin id_trade, se buscará por Par+Fecha+Hora");
-            }
+            console.log("🔁 ACTUALIZANDO trade existente ID:", tradeData.id);
         } else {
+            tradeData.accion = 'nuevo';
             console.log("🆕 CREANDO nuevo trade (sin ID)");
-            // Para nuevo trade: NO enviar 'id' ni 'accion'
         }
 
         const params = new URLSearchParams();
@@ -449,17 +432,27 @@ async function archivarPar() {
 
         console.log("📤 Datos enviados:", Object.fromEntries(params));
 
-        await fetch(URL_SHEETS, {
+        // ⚠️ CORRECCIÓN: Quitar mode: 'no-cors' para poder leer respuesta
+        const respuesta = await fetch(URL_SHEETS, {
             method: 'POST',
-            body: params,
-            mode: 'no-cors'
+            body: params
+            // ❌ NO USAR: mode: 'no-cors'
         });
-
-        // INTENTAR GUARDAR EL ID ASIGNADO
-        // Para nuevos trades, Google Sheets asignará un ID
-        // Para actualizaciones, mantenemos el ID existente
         
-        mostrarToast(esUnaActualizacion ? "✅ Trade actualizado" : "✅ Nuevo trade archivado", 'exito');
+        const textoRespuesta = await respuesta.text();
+        console.log("📥 Respuesta del servidor:", textoRespuesta);
+        
+        // GUARDAR EL ID DEVUELTO
+        const matchId = textoRespuesta.match(/trade\s+(\d+)/i);
+        if (matchId && matchId[1]) {
+            const nuevoId = matchId[1];
+            console.log(`✅ ID recibido de Google Sheets: ${nuevoId}`);
+            trades[currentIdx].datos.id_trade = nuevoId;
+            save();
+            mostrarToast(`✅ Trade guardado en Sheets con ID: ${nuevoId}`, 'exito');
+        } else {
+            mostrarToast("✅ Trade archivado localmente", 'exito');
+        }
         
     } catch (error) {
         console.error('❌ Error al enviar:', error);
