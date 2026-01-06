@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -47,13 +48,21 @@
     <h2 id="tituloPar" class="titulo-premium"></h2>
     
     <div class="card-glass premium">
-        <!-- ⭐ CAMPO ID DENTRO DEL FORMULARIO -->
+        <!-- ⭐ CAMPO ID CON VALIDACIÓN -->
         <div class="input-group">
           <p class="label-input glow">🔢 #ID (Google Sheets)</p>
-          <input type="number" id="idManualForm" placeholder="Deja vacío para auto-generar" min="1" 
-                 style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1);">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="number" id="idManualForm" placeholder="Deja vacío para auto-generar" min="1" 
+                   style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1); flex: 1;">
+            <button onclick="document.getElementById('idManualForm').value = sugerirIdDisponible()" 
+                    style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.9rem;">
+              Sugerir ID
+            </button>
+          </div>
           <small style="color: var(--subtext); font-size: 0.8rem; display: block; margin-top: 5px;">
-            Usa el mismo ID de Google Sheets para actualizar un trade existente
+            • Deja vacío para auto-generar ID consecutivo<br>
+            • Usa el mismo ID de Google Sheets para actualizar un trade existente<br>
+            • <span style="color: #ef4444;">❌ Rojo</span>: ID ya existe | <span style="color: #10b981;">✅ Verde</span>: ID disponible
           </small>
         </div>
         
