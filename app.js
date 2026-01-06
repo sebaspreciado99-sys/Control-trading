@@ -1,6 +1,6 @@
-// ==================== APP.JS COMPLETO (CORREGIDO) ====================
+// ==================== APP.JS COMPLETO (CON ID MANUAL EN FORMULARIO) ====================
 // URL para Google Sheets
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
@@ -106,6 +106,12 @@ function guardarCambios(mostrarNotificacion = false) {
         trades[currentIdx].datos[id] = el.value;
     });
 
+    // ⭐ GUARDAR ID MANUAL DEL FORMULARIO
+    const idManualForm = get("idManualForm");
+    if (idManualForm && idManualForm.value.trim() !== "") {
+        trades[currentIdx].datos.id_trade = idManualForm.value;
+    }
+
     const colorAuto = get("colorAuto");
     if (colorAuto) trades[currentIdx].color = colorAuto.value;
 
@@ -146,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const camposAutoSave = [
         "fecha", "hora", "tipo", "gatillo", "sl", "tp", "maxRatio",
         "resultado", "duracion", "diario", "horario", "porcentaje",
-        "rNegativo", "rPositivo", "colorAuto"
+        "rNegativo", "rPositivo", "colorAuto", "idManualForm"
     ];
 
     camposAutoSave.forEach(id => {
@@ -223,6 +229,7 @@ function renderColores() {
 function guardarPar() {
     const inputPar = get("inputPar");
     const colorPar = get("colorPar");
+    
     if (!inputPar || !colorPar) return;
 
     const nom = inputPar.value.trim().toUpperCase();
@@ -326,8 +333,11 @@ function abrirForm(i) {
 
     const tituloPar = get("tituloPar");
     const colorAuto = get("colorAuto");
+    const idManualForm = get("idManualForm");
+    
     if (tituloPar) tituloPar.textContent = t.nombre;
     if (colorAuto) colorAuto.value = t.color || "#f0b90b";
+    if (idManualForm) idManualForm.value = t.datos.id_trade || "";
 
     const campos = [
         "fecha", "hora", "tipo", "gatillo", "sl", "tp", "ratio", "maxRatio",
@@ -413,11 +423,14 @@ async function archivarPar() {
             rPositivo: datos.rPositivo || ''
         };
         
-        // ⚠️ CORRECCIÓN CRÍTICA: Siempre enviar acción e ID si existe
-        if (trade.datos.id_trade) {
-            tradeData.id = trade.datos.id_trade;
+        // ⭐ DECISIÓN: Usar ID del formulario manual
+        const idManualForm = get("idManualForm");
+        const idParaEnviar = idManualForm && idManualForm.value.trim() !== "" ? idManualForm.value : null;
+        
+        if (idParaEnviar) {
+            tradeData.id = idParaEnviar;
             tradeData.accion = 'actualizar';
-            console.log("🔁 ACTUALIZANDO trade existente ID:", tradeData.id);
+            console.log("🔁 ACTUALIZANDO trade con ID manual:", tradeData.id);
         } else {
             tradeData.accion = 'nuevo';
             console.log("🆕 CREANDO nuevo trade (sin ID)");
@@ -432,26 +445,30 @@ async function archivarPar() {
 
         console.log("📤 Datos enviados:", Object.fromEntries(params));
 
-        // ⚠️ CORRECCIÓN: Quitar mode: 'no-cors' para poder leer respuesta
+        // ENVÍO SIN 'no-cors' PARA LEER RESPUESTA
         const respuesta = await fetch(URL_SHEETS, {
             method: 'POST',
             body: params
-            // ❌ NO USAR: mode: 'no-cors'
         });
         
         const textoRespuesta = await respuesta.text();
         console.log("📥 Respuesta del servidor:", textoRespuesta);
         
-        // GUARDAR EL ID DEVUELTO
-        const matchId = textoRespuesta.match(/trade\s+(\d+)/i);
-        if (matchId && matchId[1]) {
-            const nuevoId = matchId[1];
-            console.log(`✅ ID recibido de Google Sheets: ${nuevoId}`);
-            trades[currentIdx].datos.id_trade = nuevoId;
-            save();
-            mostrarToast(`✅ Trade guardado en Sheets con ID: ${nuevoId}`, 'exito');
+        // SI NO TENÍAMOS ID Y EL SERVER ASIGNA UNO, GUARDARLO
+        if (!idParaEnviar) {
+            const matchId = textoRespuesta.match(/trade\s+(\d+)/i);
+            if (matchId && matchId[1]) {
+                const nuevoId = matchId[1];
+                console.log(`✅ ID recibido de Google Sheets: ${nuevoId}`);
+                trades[currentIdx].datos.id_trade = nuevoId;
+                if (idManualForm) idManualForm.value = nuevoId;
+                save();
+                mostrarToast(`✅ Trade guardado en Sheets con ID: ${nuevoId}`, 'exito');
+            } else {
+                mostrarToast("✅ Trade archivado localmente", 'exito');
+            }
         } else {
-            mostrarToast("✅ Trade archivado localmente", 'exito');
+            mostrarToast(`✅ Trade actualizado en Sheets (ID: ${idParaEnviar})`, 'exito');
         }
         
     } catch (error) {
