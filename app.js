@@ -1,5 +1,6 @@
-// ==================== APP.JS COMPLETO (CON PWA Y GOOGLE SHEETS FUNCIONAL) ====================
+// ==================== APP.JS COMPLETO (CON PREVENCIÓN DE FETCH INICIAL) ====================
 // ⚠️ ¡NO CAMBIAR ESTA URL! Es la conexión a tu Google Apps Script
+// Si publicas nueva versión del script, ACTUALIZA ESTA URL
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
 
 // URL base para la PWA en GitHub Pages
@@ -10,6 +11,29 @@ let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
 let currentIdx = null;
 
 const get = id => document.getElementById(id);
+
+// ==================== FUNCIÓN: PREVENIR FETCH INICIAL AUTOMÁTICO ====================
+let fetchInicialPrevenido = false;
+
+function prevenirFetchInicial() {
+  if (fetchInicialPrevenido) return;
+  
+  console.log('🛡️ Previniendo fetch inicial automático a Google Sheets');
+  console.log('📱 Modo PWA:', esPWAInstalada() ? 'Sí (instalada)' : 'No (navegador)');
+  
+  // IMPORTANTE: NO hacer fetch automático al cargar la app
+  // Esto evita que se creen trades fantasma al abrir la PWA
+  
+  fetchInicialPrevenido = true;
+  
+  // Solo mostrar mensaje informativo
+  setTimeout(() => {
+    console.log('✅ App Trading cargada - Lista para operar');
+    if (esPWAInstalada()) {
+      mostrarToast('📱 App Trading lista para usar', 'exito');
+    }
+  }, 1500);
+}
 
 // ==================== FUNCIÓN: VERIFICAR ID DUPLICADO ====================
 function verificarIdDuplicado(idABuscar) {
@@ -42,6 +66,14 @@ function mostrarToast(mensaje, tipo = 'exito') {
     }, 4000);
 }
 
+// ==================== FUNCIÓN: DETECTAR PWA INSTALADA ====================
+function esPWAInstalada() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const isIOS = window.navigator.standalone === true;
+  
+  return isStandalone || isIOS;
+}
+
 // ==================== FUNCIÓN: EXPORTAR BACKUP ====================
 function exportarBackup() {
     try {
@@ -69,12 +101,6 @@ function exportarBackup() {
         console.error('Error exportando backup:', error);
         mostrarToast('❌ Error al exportar backup', 'error');
     }
-}
-
-// ==================== FUNCIÓN: DETECTAR PWA ====================
-function esPWAInstalada() {
-    return window.matchMedia('(display-mode: standalone)').matches || 
-           window.navigator.standalone === true;
 }
 
 // SESIÓN ACTUAL
@@ -188,6 +214,9 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('🏠 URL App:', APP_BASE_URL);
     console.log('📱 Es PWA instalada?', esPWAInstalada());
     
+    // 🔥 PREVENIR FETCH INICIAL (¡CRÍTICO!)
+    prevenirFetchInicial();
+    
     // Si es PWA, aplicar estilos especiales
     if (esPWAInstalada()) {
         document.body.classList.add('pwa-mode');
@@ -261,24 +290,33 @@ document.addEventListener("DOMContentLoaded", () => {
     showHome();
     actualizarSesion();
     setInterval(actualizarSesion, 60000);
-    
-    // Verificar conexión con Google Sheets
-    verificarConexionSheets();
 });
 
-// ==================== FUNCIÓN: VERIFICAR CONEXIÓN CON SHEETS ====================
+// ==================== FUNCIÓN: VERIFICAR CONEXIÓN (OPCIONAL) ====================
 async function verificarConexionSheets() {
+    // Esta función es OPCIONAL y solo debe usarse manualmente
+    // NO llamarla automáticamente al cargar la app
+    
     try {
         console.log('🔍 Verificando conexión con Google Sheets...');
-        const respuesta = await fetch(URL_SHEETS + '?test=conexion', {
-            method: 'GET',
-            mode: 'no-cors' // Para evitar errores de CORS en la verificación
+        const testParams = new URLSearchParams();
+        testParams.append('test', 'conexion');
+        
+        const respuesta = await fetch(URL_SHEETS + '?' + testParams.toString(), {
+            method: 'GET'
         });
-        console.log('✅ Conexión con Google Sheets disponible');
-        mostrarToast('✅ Conectado a Google Sheets', 'exito');
+        
+        const texto = await respuesta.text();
+        console.log('✅ Respuesta de conexión:', texto.substring(0, 100));
+        
+        if (texto.includes('INFO') || texto.includes('App')) {
+            mostrarToast('✅ Conectado a Google Sheets', 'exito');
+            return true;
+        }
+        return false;
     } catch (error) {
-        console.warn('⚠️ No se pudo verificar conexión con Google Sheets:', error);
-        mostrarToast('⚠️ Modo offline activado - Guardando localmente', 'error');
+        console.warn('⚠️ No se pudo verificar conexión:', error);
+        return false;
     }
 }
 
@@ -484,7 +522,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN: ARCHIVAR PAR (CORREGIDA) ====================
+// ==================== FUNCIÓN: ARCHIVAR PAR (SEGURA) ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -515,7 +553,6 @@ async function archivarPar() {
     
     console.log('📤 Intentando archivar trade:', trade.nombre);
     console.log('🔗 URL destino:', URL_SHEETS);
-    console.log('📊 Datos trade:', trade.datos);
 
     // Preparar datos para enviar
     const tradeData = {
@@ -560,7 +597,7 @@ async function archivarPar() {
     console.log('📨 Parámetros enviados:', Object.fromEntries(params));
 
     try {
-        // ⭐ ENVÍO CRÍTICO: Usar fetch SIN 'no-cors' para poder leer respuesta
+        // ENVÍO SEGURO a Google Sheets
         console.log('🌐 Enviando datos a Google Sheets...');
         const respuesta = await fetch(URL_SHEETS, {
             method: 'POST',
@@ -568,7 +605,6 @@ async function archivarPar() {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: params
-            // ❌ NO usar: mode: 'no-cors' (impide leer respuesta)
         });
         
         const textoRespuesta = await respuesta.text();
@@ -977,22 +1013,18 @@ window.exportarBackup = exportarBackup;
 window.sugerirIdDisponible = sugerirIdDisponible;
 window.eliminarEnSheets = eliminarEnSheets;
 window.esPWAInstalada = esPWAInstalada;
+window.verificarConexionSheets = verificarConexionSheets; // Solo para uso manual
+window.prevenirFetchInicial = prevenirFetchInicial;
 
-// ==================== REGISTRO DE SERVICE WORKER (MEJORADO) ====================
+// ==================== REGISTRO DE SERVICE WORKER ====================
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-        // Registrar con control de errores
         navigator.serviceWorker.register("./sw.js")
             .then(registration => {
-                console.log("✅ Service Worker registrado correctamente:", registration.scope);
-                
-                // Verificar actualizaciones periódicamente
-                setInterval(() => {
-                    registration.update();
-                }, 60 * 60 * 1000); // Cada hora
+                console.log("✅ Service Worker registrado:", registration.scope);
             })
             .catch(error => {
-                console.log("⚠️ Service Worker NO registrado (puede ser normal en desarrollo):", error);
+                console.log("⚠️ Service Worker NO registrado:", error);
             });
     });
 }
