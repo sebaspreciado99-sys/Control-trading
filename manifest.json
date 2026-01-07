@@ -1,13 +1,35 @@
+
 {
   "name": "📈 TRADING 📉",
   "short_name": "TRADING",
   "description": "Sistema de control de operaciones de trading",
-  "start_url": "/Control-trading/",  // IMPORTANTE: Ruta correcta
+  "start_url": "/Control-trading/",
   "scope": "/Control-trading/",
   "display": "standalone",
   "background_color": "#0a0c10",
   "theme_color": "#f0b90b",
+  "orientation": "portrait",
   "icons": [
+    {
+      "src": "icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
     {
       "src": "icon-192.png",
       "sizes": "192x192",
@@ -17,8 +39,7 @@
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
