@@ -1,11 +1,8 @@
-const CACHE_NAME = 'trading-control-pwa-v1';
-const API_URL = 'https://script.google.com';
-
-// Archivos de la APP para cachear
+const CACHE_NAME = 'trading-app-v6';
 const APP_FILES = [
   './',
-  './index.html',
-  './app.js', 
+  './index.html', 
+  './app.js',
   './styles.css',
   './manifest.json',
   './icon-192.png',
@@ -14,29 +11,22 @@ const APP_FILES = [
 
 // ===== INSTALAR =====
 self.addEventListener('install', event => {
-  console.log('📦 Service Worker: INSTALANDO...');
+  console.log('📦 SW: Instalando y cacheando archivos de la APP');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('✅ Cacheando archivos de la app:', APP_FILES);
-        return cache.addAll(APP_FILES);
-      })
+      .then(cache => cache.addAll(APP_FILES))
       .then(() => self.skipWaiting())
   );
 });
 
-// ===== ACTIVAR =====
+// ===== ACTIVAR =====  
 self.addEventListener('activate', event => {
-  console.log('🔄 Service Worker: ACTIVANDO...');
+  console.log('🔄 SW: Activando y limpiando cache vieja');
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then(keys => {
       return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            console.log('🗑️ Borrando cache vieja:', cache);
-            return caches.delete(cache);
-          }
-        })
+        keys.filter(key => key !== CACHE_NAME)
+            .map(key => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
@@ -46,55 +36,33 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = event.request.url;
   
-  // 🔥 REGLA CRÍTICA: NO INTERCEPTAR peticiones a Google Apps Script
-  if (url.includes('script.google.com')) {
-    console.log('🌐 Petición a Google Script: PASANDO DIRECTO');
-    // Dejar pasar la petición SIN INTERFERIR
-    return fetch(event.request)
-      .catch(error => {
-        console.error('❌ Error en petición a Google Sheets:', error);
-        // Puedes retornar una respuesta de fallback si quieres
-        return new Response(JSON.stringify({ 
-          status: 'error', 
-          message: 'Sin conexión a Google Sheets' 
-        }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      });
+  // 🔥 REGLA CRÍTICA: NO TOCAR peticiones a Google Script
+  // Esto incluye tanto "script.google.com" como "docs.google.com"
+  if (url.includes('script.google.com') || url.includes('docs.google.com')) {
+    console.log('🌐 Petición a Google: PASANDO DIRECTO (sin cache)');
+    return fetch(event.request); // Fetch directo, sin cachear
   }
   
-  // Para archivos de la APP, usar cache primero
+  // Para TODO lo demás (archivos de tu app), usar cache
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // 1. Si está en cache, devolverlo
         if (response) {
           console.log('📂 Sirviendo desde cache:', url);
           return response;
         }
         
-        // 2. Si NO está en cache, hacer fetch online
         console.log('🌐 Haciendo fetch online:', url);
-        return fetch(event.request)
-          .then(response => {
-            // Solo cachear si es exitoso y es de nuestro dominio
-            if (response && response.status === 200 && 
-                response.type === 'basic' &&
-                url.includes('sebaspreciado99-sys.github.io')) {
-              const responseClone = response.clone();
-              caches.open(CACHE_NAME)
-                .then(cache => {
-                  cache.put(event.request, responseClone);
-                });
-            }
-            return response;
-          })
-          .catch(() => {
-            // Si falla y es una página HTML, devolver la offline
-            if (event.request.mode === 'navigate') {
-              return caches.match('./index.html');
-            }
-          });
+        return fetch(event.request).then(response => {
+          // Solo cachear archivos de nuestro dominio
+          if (response.ok && url.includes('github.io')) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, clone);
+            });
+          }
+          return response;
+        });
       })
   );
 });
