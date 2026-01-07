@@ -1,6 +1,6 @@
 // ==================== APP.JS COMPLETO (CON PWA Y GOOGLE SHEETS FUNCIONAL) ====================
 // ⚠️ ¡NO CAMBIAR ESTA URL! Es la conexión a tu Google Apps Script
-const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
+const URL_SHEETS = "https://script.google.com/macros/s/AKfycbwhyrjxqY54qQnm11LPrzYBa7ZSFzrJLjdD2eWDhwEcPuJPLrp0CBes8r1OG_JQK81iEA/exec";
 
 // URL base para la PWA en GitHub Pages
 const APP_BASE_URL = 'https://sebaspreciado99-sys.github.io/Control-trading/';
