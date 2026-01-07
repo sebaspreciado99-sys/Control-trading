@@ -2,24 +2,132 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
+  <!-- Título de la app -->
   <title>📈 TRADING 📉</title>
-
-  <!-- Manifest PWA -->
-  <link rel="manifest" href="manifest.json">
+  
+  <!-- ==================== META TAGS PWA ==================== -->
+  <!-- Manifiesto PWA -->
+  <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+  
+  <!-- Color de tema -->
   <meta name="theme-color" content="#0a0c10">
-  <link rel="icon" type="image/png" href="icon-192.png">
-
+  
+  <!-- Descripción -->
+  <meta name="description" content="Sistema profesional de control y seguimiento de operaciones de trading">
+  
+  <!-- Para iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TRADING">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <!-- Para Microsoft -->
+  <meta name="msapplication-TileColor" content="#0a0c10">
+  <meta name="msapplication-TileImage" content="icon-144.png">
+  <meta name="msapplication-config" content="browserconfig.xml">
+  
+  <!-- Para navegadores modernos -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <link rel="shortcut icon" href="icon-192.png">
+  
+  <!-- CSS personalizado -->
   <link rel="stylesheet" href="styles.css">
+  
+  <!-- ==================== ESTILOS PWA ADICIONALES ==================== -->
+  <style>
+    /* Estilos específicos para PWA instalada */
+    .pwa-mode header {
+      padding-top: env(safe-area-inset-top);
+    }
+    
+    .pwa-mode #sesionActual {
+      margin-top: env(safe-area-inset-top);
+    }
+    
+    /* Botón de instalación PWA */
+    #installButton {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      background: linear-gradient(135deg, #f0b90b, #f59e0b);
+      color: #0a0c10;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 4px 15px rgba(240, 185, 11, 0.3);
+      cursor: pointer;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    #installButton:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(240, 185, 11, 0.4);
+    }
+    
+    #installButton.show {
+      display: flex;
+      animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Indicador de app instalada */
+    .pwa-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #10b981;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      display: none;
+    }
+    
+    .pwa-mode .pwa-badge {
+      display: block;
+    }
+    
+    /* Ajustes para modo standalone */
+    @media all and (display-mode: standalone) {
+      body {
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      .card-glass {
+        border-radius: 16px;
+      }
+    }
+  </style>
 </head>
 <body>
+  <!-- ==================== HEADER ==================== -->
   <header>
     <div class="header-glow">
       <h1>📈 TRADING 📉</h1>
+      <div class="pwa-badge">APP</div>
     </div>
   </header>
 
-  <!-- HOME: crear par y ver lista -->
+  <!-- ==================== SECCIÓN HOME ==================== -->
   <section id="home">
     <div class="card-glass premium">
       <div class="input-group">
@@ -42,12 +150,12 @@
     <div id="listaPares"></div>
   </section>
 
-  <!-- FORMULARIO DE OPERACIÓN -->
+  <!-- ==================== FORMULARIO DE OPERACIÓN ==================== -->
   <section id="operaciones" class="oculto">
     <h2 id="tituloPar" class="titulo-premium"></h2>
     
     <div class="card-glass premium">
-        <!-- ⭐ CAMPO ID CON VALIDACIÓN Y BOTÓN DE SUGERIR -->
+        <!-- CAMPO ID CON VALIDACIÓN Y BOTÓN DE SUGERIR -->
         <div class="input-group">
           <p class="label-input glow">🔢 #ID (Google Sheets)</p>
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -160,7 +268,7 @@
     </div>
   </section>
 
-  <!-- HISTORIAL -->
+  <!-- ==================== HISTORIAL ==================== -->
   <section id="historial" class="oculto">
     <h2 class="titulo-premium">📁 HISTORIAL</h2>
     
@@ -181,19 +289,175 @@
     <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
   </section>
 
-  <!-- DETALLE -->
+  <!-- ==================== DETALLE ==================== -->
   <section id="detalle" class="oculto">
     <h2 id="detalleTitulo" class="titulo-premium"></h2>
     <div id="detalleContenido"></div>
     <button onclick="volverHistorial()" class="btn-secondary premium">⬅ Volver</button>
   </section>
 
+  <!-- ==================== ELEMENTOS ADICIONALES ==================== -->
   <!-- Sesión actual -->
   <div id="sesionActual"></div>
 
   <!-- Botón flotante historial -->
   <button id="btnHistorial" onclick="abrirHistorial()" class="fab-premium">📁</button>
 
+  <!-- Botón de instalación PWA -->
+  <button id="installButton" class="oculto">
+    <span>📱</span> Instalar App
+  </button>
+
+  <!-- ==================== SCRIPTS ==================== -->
   <script src="app.js"></script>
+  
+  <script>
+    // ==================== PWA INSTALLATION HANDLER ====================
+    let deferredPrompt;
+    const installButton = document.getElementById('installButton');
+    
+    // Detectar si ya está instalada como PWA
+    function detectPWA() {
+      // Modo standalone (iOS/Android)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      
+      // Navegadores específicos
+      const isInWebAppiOS = (window.navigator.standalone === true);
+      const isInWebAppChrome = (window.matchMedia('(display-mode: standalone)').matches);
+      
+      if (isStandalone || isInWebAppiOS || isInWebAppChrome) {
+        console.log('📱 App ejecutándose como PWA instalada');
+        document.body.classList.add('pwa-mode');
+        installButton.classList.remove('show');
+        return true;
+      }
+      return false;
+    }
+    
+    // Escuchar evento beforeinstallprompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('📱 beforeinstallprompt activado');
+      // Prevenir que Chrome muestre su prompt automático
+      e.preventDefault();
+      // Guardar el evento para usarlo después
+      deferredPrompt = e;
+      
+      // Solo mostrar nuestro botón si NO es PWA ya
+      if (!detectPWA()) {
+        installButton.classList.add('show');
+      }
+    });
+    
+    // Manejar clic en botón de instalación
+    installButton.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      
+      // Mostrar el prompt de instalación
+      deferredPrompt.prompt();
+      
+      // Esperar a que el usuario responda
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`📱 Usuario ${outcome} la instalación`);
+      
+      // Ya no necesitamos el prompt
+      deferredPrompt = null;
+      
+      // Ocultar nuestro botón
+      installButton.classList.remove('show');
+      
+      if (outcome === 'accepted') {
+        console.log('✅ PWA instalada con éxito');
+        mostrarToast('✅ App instalada correctamente', 'exito');
+        document.body.classList.add('pwa-mode');
+      }
+    });
+    
+    // Detectar cuando la app se instala
+    window.addEventListener('appinstalled', (evt) => {
+      console.log('🎉 PWA instalada exitosamente');
+      installButton.classList.remove('show');
+      document.body.classList.add('pwa-mode');
+    });
+    
+    // ==================== SERVICE WORKER REGISTRATION ====================
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(registration => {
+            console.log('✅ Service Worker registrado:', registration.scope);
+            
+            // Verificar actualizaciones cada 24 horas
+            setInterval(() => {
+              registration.update();
+            }, 24 * 60 * 60 * 1000);
+            
+            // Escuchar nuevas versiones
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('🔄 Nueva versión disponible');
+                  mostrarToast('🔄 Nueva versión disponible. Recarga la app.', 'exito');
+                }
+              });
+            });
+          })
+          .catch(error => {
+            console.error('❌ Error al registrar Service Worker:', error);
+          });
+      });
+    }
+    
+    // ==================== OFFLINE DETECTION ====================
+    window.addEventListener('online', () => {
+      console.log('🌐 Conectado a internet');
+      mostrarToast('✅ Conectado a internet', 'exito');
+    });
+    
+    window.addEventListener('offline', () => {
+      console.log('📴 Sin conexión a internet');
+      mostrarToast('⚠️ Modo offline activado', 'error');
+    });
+    
+    // Detectar estado inicial
+    if (!navigator.onLine) {
+      console.log('📴 Iniciando en modo offline');
+      mostrarToast('⚠️ Trabajando en modo offline', 'error');
+    }
+    
+    // ==================== INICIALIZAR DETECCIÓN PWA ====================
+    // Esperar un momento para que todo cargue
+    setTimeout(() => {
+      detectPWA();
+      
+      // Si no está instalada y no hay prompt después de 5 seg, mostrar ayuda
+      setTimeout(() => {
+        if (!document.body.classList.contains('pwa-mode') && !installButton.classList.contains('show')) {
+          console.log('💡 Para instalar la app: Menú → "Agregar a pantalla de inicio"');
+        }
+      }, 5000);
+    }, 1000);
+    
+    // ==================== FULLSCREEN SUPPORT ====================
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.log(`❌ Error al activar pantalla completa: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+    
+    // Añadir listener para tecla F11
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    });
+  </script>
 </body>
 </html>
