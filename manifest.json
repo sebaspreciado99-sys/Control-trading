@@ -1,17 +1,12 @@
 {
-  "name": "Trading Journal Pro",
-  "short_name": "Journal Pro",
-
-  "start_url": "/Control-trading/",
+  "name": "📈 TRADING 📉",
+  "short_name": "TRADING",
+  "description": "Sistema de control de operaciones de trading",
+  "start_url": "/Control-trading/",  // IMPORTANTE: Ruta correcta
   "scope": "/Control-trading/",
-  "id": "/Control-trading/",
-
   "display": "standalone",
-  "orientation": "portrait",
-
   "background_color": "#0a0c10",
-  "theme_color": "#0a0c10",
-
+  "theme_color": "#f0b90b",
   "icons": [
     {
       "src": "icon-192.png",
