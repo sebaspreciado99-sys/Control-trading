@@ -1,6 +1,9 @@
-// ==================== APP.JS COMPLETO CON ELIMINACIÓN EN SHEETS ====================
-// URL para Google Sheets (¡ACTUALIZAR ESTA URL DESPUÉS DE PUBLICAR NUEVA VERSIÓN!)
+// ==================== APP.JS COMPLETO (CON PWA Y GOOGLE SHEETS FUNCIONAL) ====================
+// ⚠️ ¡NO CAMBIAR ESTA URL! Es la conexión a tu Google Apps Script
 const URL_SHEETS = "https://script.google.com/macros/s/AKfycbxYVEBKihhOF0NCoWkWQZCfWkoFtwYURY1qhqO45hQRiQ6J8-GGhTW6avbmKAE3bToL9w/exec";
+
+// URL base para la PWA en GitHub Pages
+const APP_BASE_URL = 'https://sebaspreciado99-sys.github.io/Control-trading/';
 
 let trades = JSON.parse(localStorage.getItem("trades_v5_pro")) || [];
 let sugerencias = JSON.parse(localStorage.getItem("sugerencias_v5")) || [];
@@ -15,13 +18,9 @@ function verificarIdDuplicado(idABuscar) {
     const idNum = parseInt(idABuscar);
     if (isNaN(idNum)) return false;
     
-    // Buscar en todos los trades (activos y archivados)
     return trades.some(trade => {
         const tradeId = trade.datos.id_trade;
-        if (tradeId && !isNaN(tradeId) && parseInt(tradeId) === idNum) {
-            return true;
-        }
-        return false;
+        return tradeId && !isNaN(tradeId) && parseInt(tradeId) === idNum;
     });
 }
 
@@ -70,6 +69,12 @@ function exportarBackup() {
         console.error('Error exportando backup:', error);
         mostrarToast('❌ Error al exportar backup', 'error');
     }
+}
+
+// ==================== FUNCIÓN: DETECTAR PWA ====================
+function esPWAInstalada() {
+    return window.matchMedia('(display-mode: standalone)').matches || 
+           window.navigator.standalone === true;
 }
 
 // SESIÓN ACTUAL
@@ -128,9 +133,8 @@ function guardarCambios(mostrarNotificacion = false) {
     if (idManualForm && idManualForm.value.trim() !== "") {
         const idIngresado = idManualForm.value.trim();
         
-        // Verificar si el ID ya existe en OTRO trade (no en el actual)
         const idExisteEnOtroTrade = trades.some((trade, idx) => {
-            if (idx === currentIdx) return false; // No comparar con el mismo trade
+            if (idx === currentIdx) return false;
             const tradeId = trade.datos.id_trade;
             return tradeId && tradeId.toString() === idIngresado;
         });
@@ -141,7 +145,6 @@ function guardarCambios(mostrarNotificacion = false) {
             idManualForm.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.3)';
             return;
         } else {
-            // Si no hay duplicado, guardar el ID
             trades[currentIdx].datos.id_trade = idIngresado;
             idManualForm.style.borderColor = '';
             idManualForm.style.boxShadow = '';
@@ -178,8 +181,19 @@ function calcularRatio() {
     guardarCambios();
 }
 
-// INIT
+// ==================== INIT ====================
 document.addEventListener("DOMContentLoaded", () => {
+    console.log('🚀 App Trading inicializando...');
+    console.log('🌐 URL Sheets:', URL_SHEETS);
+    console.log('🏠 URL App:', APP_BASE_URL);
+    console.log('📱 Es PWA instalada?', esPWAInstalada());
+    
+    // Si es PWA, aplicar estilos especiales
+    if (esPWAInstalada()) {
+        document.body.classList.add('pwa-mode');
+        console.log('✅ Ejecutando en modo PWA instalada');
+    }
+
     const slInput = get("sl");
     const tpInput = get("tp");
     if (slInput) slInput.addEventListener("input", calcularRatio);
@@ -196,7 +210,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             
-            // Verificar si el ID ya existe en OTRO trade
             const idExisteEnOtroTrade = trades.some((trade, idx) => {
                 if (currentIdx !== null && idx === currentIdx) return false;
                 const tradeId = trade.datos.id_trade;
@@ -236,6 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // Autoguardado cada 5 segundos
     setInterval(() => {
         if (currentIdx !== null && get('operaciones') && !get('operaciones').classList.contains('oculto')) {
             guardarCambios();
@@ -247,7 +261,26 @@ document.addEventListener("DOMContentLoaded", () => {
     showHome();
     actualizarSesion();
     setInterval(actualizarSesion, 60000);
+    
+    // Verificar conexión con Google Sheets
+    verificarConexionSheets();
 });
+
+// ==================== FUNCIÓN: VERIFICAR CONEXIÓN CON SHEETS ====================
+async function verificarConexionSheets() {
+    try {
+        console.log('🔍 Verificando conexión con Google Sheets...');
+        const respuesta = await fetch(URL_SHEETS + '?test=conexion', {
+            method: 'GET',
+            mode: 'no-cors' // Para evitar errores de CORS en la verificación
+        });
+        console.log('✅ Conexión con Google Sheets disponible');
+        mostrarToast('✅ Conectado a Google Sheets', 'exito');
+    } catch (error) {
+        console.warn('⚠️ No se pudo verificar conexión con Google Sheets:', error);
+        mostrarToast('⚠️ Modo offline activado - Guardando localmente', 'error');
+    }
+}
 
 function save() {
     localStorage.setItem("trades_v5_pro", JSON.stringify(trades));
@@ -405,7 +438,6 @@ function abrirForm(i) {
     if (colorAuto) colorAuto.value = t.color || "#f0b90b";
     if (idManualForm) {
         idManualForm.value = t.datos.id_trade || "";
-        // Restablecer estilos al abrir el formulario
         idManualForm.style.borderColor = '';
         idManualForm.style.boxShadow = '';
         idManualForm.title = '';
@@ -452,7 +484,7 @@ function abrirForm(i) {
     calcularRatio();
 }
 
-// ==================== FUNCIÓN: ARCHIVAR PAR ====================
+// ==================== FUNCIÓN: ARCHIVAR PAR (CORREGIDA) ====================
 async function archivarPar() {
     if (!get("fecha").value || !get("resultado").value) {
         mostrarToast("Por favor, completa al menos Fecha y Resultado antes de archivar", 'error');
@@ -481,87 +513,123 @@ async function archivarPar() {
     
     const trade = trades[currentIdx];
     
-    console.log("📤 Enviando trade:", trade.nombre, 
-                "ID_Trade actual:", trade.datos.id_trade);
+    console.log('📤 Intentando archivar trade:', trade.nombre);
+    console.log('🔗 URL destino:', URL_SHEETS);
+    console.log('📊 Datos trade:', trade.datos);
+
+    // Preparar datos para enviar
+    const tradeData = {
+        par: trade.nombre || '',
+        fecha: trade.datos.fecha || '',
+        hora: trade.datos.hora || '',
+        tipo: trade.datos.tipo || '',
+        gatillo: trade.datos.gatillo || '',
+        sl: trade.datos.sl || '',
+        tp: trade.datos.tp || '',
+        ratio: trade.datos.ratio || '',
+        maxRatio: trade.datos.maxRatio || '',
+        resultado: trade.datos.resultado || '',
+        duracion: trade.datos.duracion || '',
+        diario: trade.datos.diario || '',
+        horario: trade.datos.horario || '',
+        porcentaje: trade.datos.porcentaje || '',
+        rNegativo: trade.datos.rNegativo || '',
+        rPositivo: trade.datos.rPositivo || ''
+    };
     
-    trade.datos.archivedAt = Date.now();
-    trade.archivado = true;
-    trade.archivadoPreviamente = true;
+    // Determinar si es actualización o nuevo
+    const idParaEnviar = trade.datos.id_trade || (idManualForm && idManualForm.value.trim() !== "" ? idManualForm.value : null);
     
-    save();
+    if (idParaEnviar) {
+        tradeData.id = idParaEnviar;
+        tradeData.accion = 'actualizar';
+        console.log('🔁 Actualizando trade existente ID:', idParaEnviar);
+    } else {
+        tradeData.accion = 'nuevo';
+        console.log('🆕 Creando nuevo trade');
+    }
+
+    // Crear parámetros para enviar
+    const params = new URLSearchParams();
+    Object.keys(tradeData).forEach(key => {
+        if (tradeData[key] !== undefined && tradeData[key] !== null && tradeData[key] !== '') {
+            params.append(key, tradeData[key].toString());
+        }
+    });
+
+    console.log('📨 Parámetros enviados:', Object.fromEntries(params));
 
     try {
-        const datos = trade.datos;
-
-        const tradeData = {
-            par: trade.nombre || '',
-            fecha: datos.fecha || '',
-            hora: datos.hora || '',
-            tipo: datos.tipo || '',
-            gatillo: datos.gatillo || '',
-            sl: datos.sl || '',
-            tp: datos.tp || '',
-            ratio: datos.ratio || '',
-            maxRatio: datos.maxRatio || '',
-            resultado: datos.resultado || '',
-            duracion: datos.duracion || '',
-            diario: datos.diario || '',
-            horario: datos.horario || '',
-            porcentaje: datos.porcentaje || '',
-            rNegativo: datos.rNegativo || '',
-            rPositivo: datos.rPositivo || ''
-        };
-        
-        // DECISIÓN: Usar ID del formulario manual
-        const idParaEnviar = idManualForm && idManualForm.value.trim() !== "" ? idManualForm.value : null;
-        
-        if (idParaEnviar) {
-            tradeData.id = idParaEnviar;
-            tradeData.accion = 'actualizar';
-            console.log("🔁 ACTUALIZANDO trade con ID manual:", tradeData.id);
-        } else {
-            tradeData.accion = 'nuevo';
-            console.log("🆕 CREANDO nuevo trade (sin ID)");
-        }
-
-        const params = new URLSearchParams();
-        Object.keys(tradeData).forEach(key => {
-            if (tradeData[key] !== undefined && tradeData[key] !== null && tradeData[key] !== '') {
-                params.append(key, tradeData[key]);
-            }
-        });
-
-        console.log("📤 Datos enviados:", Object.fromEntries(params));
-
-        // ENVÍO SIN 'no-cors' PARA LEER RESPUESTA
+        // ⭐ ENVÍO CRÍTICO: Usar fetch SIN 'no-cors' para poder leer respuesta
+        console.log('🌐 Enviando datos a Google Sheets...');
         const respuesta = await fetch(URL_SHEETS, {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
             body: params
+            // ❌ NO usar: mode: 'no-cors' (impide leer respuesta)
         });
         
         const textoRespuesta = await respuesta.text();
-        console.log("📥 Respuesta del servidor:", textoRespuesta);
+        console.log('📥 Respuesta de Google Sheets:', textoRespuesta);
         
-        // SI NO TENÍAMOS ID Y EL SERVER ASIGNA UNO, GUARDARLO
-        if (!idParaEnviar) {
-            const matchId = textoRespuesta.match(/trade\s+(\d+)/i);
-            if (matchId && matchId[1]) {
-                const nuevoId = matchId[1];
-                console.log(`✅ ID recibido de Google Sheets: ${nuevoId}`);
-                trades[currentIdx].datos.id_trade = nuevoId;
-                if (idManualForm) idManualForm.value = nuevoId;
-                save();
-                mostrarToast(`✅ Trade guardado en Sheets con ID: ${nuevoId}`, 'exito');
+        // Procesar respuesta
+        if (textoRespuesta.includes('EXITO') || textoRespuesta.includes('Trade')) {
+            // Extraer ID si es un nuevo trade
+            if (!idParaEnviar) {
+                const matchId = textoRespuesta.match(/trade\s+(\d+)/i) || textoRespuesta.match(/ID[:\s]+(\d+)/i);
+                if (matchId && matchId[1]) {
+                    const nuevoId = matchId[1];
+                    console.log('✅ ID asignado por Google Sheets:', nuevoId);
+                    trades[currentIdx].datos.id_trade = nuevoId;
+                    if (idManualForm) idManualForm.value = nuevoId;
+                    save();
+                    mostrarToast(`✅ Trade archivado en Sheets (ID: ${nuevoId})`, 'exito');
+                } else {
+                    mostrarToast('✅ Trade archivado en Google Sheets', 'exito');
+                }
             } else {
-                mostrarToast("✅ Trade archivado localmente", 'exito');
+                mostrarToast(`✅ Trade actualizado en Sheets (ID: ${idParaEnviar})`, 'exito');
             }
+            
+            // Marcar como archivado localmente
+            trade.datos.archivedAt = Date.now();
+            trade.archivado = true;
+            trade.archivadoPreviamente = true;
+            save();
+            
+        } else if (textoRespuesta.includes('ERROR')) {
+            console.error('❌ Error de Google Sheets:', textoRespuesta);
+            mostrarToast(`❌ Error de Google Sheets: ${textoRespuesta.substring(0, 100)}`, 'error');
+            
+            // Archivar localmente aunque falle en Sheets
+            trade.datos.archivedAt = Date.now();
+            trade.archivado = true;
+            trade.archivadoPreviamente = true;
+            save();
+            mostrarToast('✅ Trade archivado localmente', 'exito');
         } else {
-            mostrarToast(`✅ Trade actualizado en Sheets (ID: ${idParaEnviar})`, 'exito');
+            console.warn('⚠️ Respuesta inesperada:', textoRespuesta);
+            mostrarToast('✅ Trade archivado (respuesta inesperada)', 'exito');
+            
+            // Archivar localmente
+            trade.datos.archivedAt = Date.now();
+            trade.archivado = true;
+            trade.archivadoPreviamente = true;
+            save();
         }
         
     } catch (error) {
-        console.error('❌ Error al enviar:', error);
-        mostrarToast("✅ Trade archivado localmente", 'exito');
+        console.error('❌ Error de conexión al archivar:', error);
+        mostrarToast('❌ Error de conexión con Google Sheets', 'error');
+        
+        // Archivar localmente si falla la conexión
+        trade.datos.archivedAt = Date.now();
+        trade.archivado = true;
+        trade.archivadoPreviamente = true;
+        save();
+        mostrarToast('✅ Trade archivado localmente (modo offline)', 'exito');
     }
 
     volverHome();
@@ -569,102 +637,104 @@ async function archivarPar() {
 
 // ==================== FUNCIÓN PARA ELIMINAR EN SHEETS ====================
 async function eliminarEnSheets(idTrade) {
-  if (!idTrade || idTrade === '') {
-    console.log("ℹ️ No hay ID para eliminar en Sheets");
-    return false;
-  }
-  
-  try {
-    const params = new URLSearchParams();
-    params.append('accion', 'eliminar');
-    params.append('id', idTrade);
-    
-    console.log(`🗑️ Enviando solicitud de eliminación a Sheets para ID: ${idTrade}`);
-    
-    const respuesta = await fetch(URL_SHEETS, {
-      method: 'POST',
-      body: params
-    });
-    
-    const textoRespuesta = await respuesta.text();
-    console.log("📥 Respuesta de eliminación:", textoRespuesta);
-    
-    if (textoRespuesta.includes('EXITO') || textoRespuesta.includes('INFO')) {
-      mostrarToast(`✅ Trade eliminado también en Google Sheets (ID: ${idTrade})`, 'exito');
-      return true;
-    } else {
-      mostrarToast(`⚠️ Eliminado localmente, pero error en Sheets: ${textoRespuesta}`, 'error');
-      return false;
+    if (!idTrade || idTrade === '') {
+        console.log("ℹ️ No hay ID para eliminar en Sheets");
+        return false;
     }
+  
+    try {
+        const params = new URLSearchParams();
+        params.append('accion', 'eliminar');
+        params.append('id', idTrade.toString());
     
-  } catch (error) {
-    console.error('❌ Error al eliminar en Sheets:', error);
-    mostrarToast('✅ Eliminado localmente, pero no se pudo conectar con Sheets', 'exito');
-    return false;
-  }
+        console.log(`🗑️ Enviando eliminación a Sheets para ID: ${idTrade}`);
+    
+        const respuesta = await fetch(URL_SHEETS, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params
+        });
+    
+        const textoRespuesta = await respuesta.text();
+        console.log("📥 Respuesta de eliminación:", textoRespuesta);
+    
+        if (textoRespuesta.includes('EXITO') || textoRespuesta.includes('INFO')) {
+            mostrarToast(`✅ Trade eliminado en Google Sheets (ID: ${idTrade})`, 'exito');
+            return true;
+        } else {
+            mostrarToast(`⚠️ Eliminado localmente, error en Sheets: ${textoRespuesta}`, 'error');
+            return false;
+        }
+    
+    } catch (error) {
+        console.error('❌ Error al eliminar en Sheets:', error);
+        mostrarToast('✅ Eliminado localmente, sin conexión a Sheets', 'exito');
+        return false;
+    }
 }
 
-// ==================== FUNCIÓN MODIFICADA: eliminarUno ====================
+// ==================== FUNCIÓN: eliminarUno ====================
 async function eliminarUno(id) {
-  if (!confirm("¿Estás seguro de eliminar permanentemente este trade?\n\nSe marcará como 'ELIMINADO' en Google Sheets.")) return;
+    if (!confirm("¿Estás seguro de eliminar permanentemente este trade?\n\nSe marcará como 'ELIMINADO' en Google Sheets.")) return;
   
-  const idx = trades.findIndex(t => t.id === id);
-  if (idx === -1) return;
+    const idx = trades.findIndex(t => t.id === id);
+    if (idx === -1) return;
   
-  const trade = trades[idx];
-  const idTradeParaSheets = trade.datos.id_trade;
+    const trade = trades[idx];
+    const idTradeParaSheets = trade.datos.id_trade;
   
-  console.log(`Eliminando trade ${trade.nombre} ID_Trade: ${idTradeParaSheets}`);
+    console.log(`Eliminando trade ${trade.nombre} ID_Trade: ${idTradeParaSheets}`);
   
-  // 1. Primero intentar eliminar en Google Sheets (si tiene ID)
-  if (idTradeParaSheets) {
-    await eliminarEnSheets(idTradeParaSheets);
-  }
+    // 1. Intentar eliminar en Google Sheets (si tiene ID)
+    if (idTradeParaSheets) {
+        await eliminarEnSheets(idTradeParaSheets);
+    }
   
-  // 2. Luego eliminar localmente
-  trades = trades.filter(t => t.id !== id);
-  save();
+    // 2. Eliminar localmente
+    trades = trades.filter(t => t.id !== id);
+    save();
   
-  // Actualizar la vista
-  if (window.location.hash.includes('#historial') || get('detalle')?.classList.contains('oculto') === false) {
-    volverHistorial();
-  } else {
-    abrirHistorial();
-  }
+    // Actualizar vista
+    if (window.location.hash.includes('#historial') || get('detalle')?.classList.contains('oculto') === false) {
+        volverHistorial();
+    } else {
+        abrirHistorial();
+    }
 }
 
-// ==================== FUNCIÓN MODIFICADA: eliminarSeleccionados ====================
+// ==================== FUNCIÓN: eliminarSeleccionados ====================
 async function eliminarSeleccionados() {
-  const sels = document.querySelectorAll(".sel-trade:checked");
-  if (sels.length === 0) {
-    mostrarToast("No hay trades seleccionados", 'error');
-    return;
-  }
-  
-  const mensaje = sels.length === 1 
-    ? "¿Estás seguro de eliminar permanentemente este trade?\n\nSe marcará como 'ELIMINADO' en Google Sheets."
-    : `¿Estás seguro de eliminar ${sels.length} trades permanentemente?\n\nSe marcarán como 'ELIMINADO' en Google Sheets.`;
-  
-  if (!confirm(mensaje)) return;
-
-  const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
-  const tradesAEliminar = trades.filter(t => ids.includes(t.id));
-  
-  // 1. Primero intentar eliminar en Google Sheets (solo los que tienen ID)
-  for (const trade of tradesAEliminar) {
-    if (trade.datos.id_trade) {
-      await eliminarEnSheets(trade.datos.id_trade);
-      // Pequeña pausa para no saturar las solicitudes
-      await new Promise(resolve => setTimeout(resolve, 300));
+    const sels = document.querySelectorAll(".sel-trade:checked");
+    if (sels.length === 0) {
+        mostrarToast("No hay trades seleccionados", 'error');
+        return;
     }
-  }
   
-  // 2. Luego eliminar localmente
-  trades = trades.filter(t => !ids.includes(t.id));
-  save();
+    const mensaje = sels.length === 1 
+        ? "¿Estás seguro de eliminar permanentemente este trade?\n\nSe marcará como 'ELIMINADO' en Google Sheets."
+        : `¿Estás seguro de eliminar ${sels.length} trades permanentemente?\n\nSe marcarán como 'ELIMINADO' en Google Sheets.`;
   
-  abrirHistorial();
-  mostrarToast(`${sels.length} trades eliminados`, 'exito');
+    if (!confirm(mensaje)) return;
+
+    const ids = Array.from(sels).map(s => parseInt(s.dataset.id));
+    const tradesAEliminar = trades.filter(t => ids.includes(t.id));
+  
+    // 1. Intentar eliminar en Google Sheets
+    for (const trade of tradesAEliminar) {
+        if (trade.datos.id_trade) {
+            await eliminarEnSheets(trade.datos.id_trade);
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+    }
+  
+    // 2. Eliminar localmente
+    trades = trades.filter(t => !ids.includes(t.id));
+    save();
+  
+    abrirHistorial();
+    mostrarToast(`${sels.length} trades eliminados`, 'exito');
 }
 
 function limpiarFiltros() {
@@ -852,11 +922,10 @@ function migrarTradesAntiguos() {
 // Ejecutar automáticamente al cargar la página
 migrarTradesAntiguos();
 
-// ==================== FUNCIÓN: GENERAR SUGERENCIA DE ID DISPONIBLE ====================
+// ==================== FUNCIÓN: SUGERIR ID DISPONIBLE ====================
 function sugerirIdDisponible() {
     const idsExistentes = [];
     
-    // Recopilar todos los IDs existentes
     trades.forEach(trade => {
         const tradeId = trade.datos.id_trade;
         if (tradeId && !isNaN(tradeId)) {
@@ -868,10 +937,8 @@ function sugerirIdDisponible() {
         return "1";
     }
     
-    // Ordenar IDs
     idsExistentes.sort((a, b) => a - b);
     
-    // Buscar el primer ID disponible
     let siguienteId = 1;
     for (const id of idsExistentes) {
         if (id === siguienteId) {
@@ -882,13 +949,6 @@ function sugerirIdDisponible() {
     }
     
     return siguienteId.toString();
-}
-
-// ==================== FUNCIÓN: SINCRONIZAR ELIMINADOS DESDE SHEETS ====================
-async function sincronizarEliminadosDesdeSheets() {
-    // Esta función podría implementarse más adelante para leer trades
-    // marcados como ELIMINADO en Sheets y sincronizar la app local
-    console.log("ℹ️ Función de sincronización futura");
 }
 
 function volverHome() {
@@ -916,11 +976,23 @@ window.eliminarUno = eliminarUno;
 window.exportarBackup = exportarBackup;
 window.sugerirIdDisponible = sugerirIdDisponible;
 window.eliminarEnSheets = eliminarEnSheets;
+window.esPWAInstalada = esPWAInstalada;
 
-// Registro del Service Worker para PWA
+// ==================== REGISTRO DE SERVICE WORKER (MEJORADO) ====================
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js")
-            .catch(err => console.log("SW error:", err));
+        // Registrar con control de errores
+        navigator.serviceWorker.register("./sw.js")
+            .then(registration => {
+                console.log("✅ Service Worker registrado correctamente:", registration.scope);
+                
+                // Verificar actualizaciones periódicamente
+                setInterval(() => {
+                    registration.update();
+                }, 60 * 60 * 1000); // Cada hora
+            })
+            .catch(error => {
+                console.log("⚠️ Service Worker NO registrado (puede ser normal en desarrollo):", error);
+            });
     });
 }
