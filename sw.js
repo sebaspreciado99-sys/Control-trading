@@ -1,111 +1,100 @@
-const CACHE_NAME = 'trading-control-v5';
-const APP_VERSION = '5.0.0';
+const CACHE_NAME = 'trading-control-pwa-v1';
+const API_URL = 'https://script.google.com';
 
-// Archivos a cachear para funcionamiento offline
-const urlsToCache = [
+// Archivos de la APP para cachear
+const APP_FILES = [
   './',
   './index.html',
-  './app.js',
+  './app.js', 
   './styles.css',
   './manifest.json',
-  './icon-72.png',
-  './icon-96.png',
-  './icon-128.png',
-  './icon-144.png',
   './icon-192.png',
   './icon-512.png'
 ];
 
-// INSTALACIÓN: Cachear recursos
+// ===== INSTALAR =====
 self.addEventListener('install', event => {
-  console.log('🔄 Service Worker instalando...');
+  console.log('📦 Service Worker: INSTALANDO...');
   event.waitUntil(
-    caches.open(CACHE_NAME + '-v' + APP_VERSION)
+    caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('📦 Cache abierto, añadiendo recursos:', urlsToCache);
-        return cache.addAll(urlsToCache);
+        console.log('✅ Cacheando archivos de la app:', APP_FILES);
+        return cache.addAll(APP_FILES);
       })
-      .then(() => {
-        console.log('✅ Todos los recursos cacheados');
-        return self.skipWaiting();
-      })
-      .catch(error => {
-        console.error('❌ Error al cachear:', error);
-      })
+      .then(() => self.skipWaiting())
   );
 });
 
-// ACTIVACIÓN: Limpiar caches viejas
+// ===== ACTIVAR =====
 self.addEventListener('activate', event => {
-  console.log('🔄 Service Worker activando...');
+  console.log('🔄 Service Worker: ACTIVANDO...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME + '-v' + APP_VERSION) {
-            console.log('🗑️ Borrando caché antigua:', cacheName);
-            return caches.delete(cacheName);
+        cacheNames.map(cache => {
+          if (cache !== CACHE_NAME) {
+            console.log('🗑️ Borrando cache vieja:', cache);
+            return caches.delete(cache);
           }
         })
       );
-    }).then(() => {
-      console.log('✅ Service Worker activado y listo');
-      return self.clients.claim();
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
-// INTERCEPTAR PETICIONES
+// ===== INTERCEPTAR PETICIONES =====
 self.addEventListener('fetch', event => {
-  // NO cachear peticiones a Google Sheets (API)
-  if (event.request.url.includes('script.google.com')) {
-    // Para la API, siempre hacer fetch online
+  const url = event.request.url;
+  
+  // 🔥 REGLA CRÍTICA: NO INTERCEPTAR peticiones a Google Apps Script
+  if (url.includes('script.google.com')) {
+    console.log('🌐 Petición a Google Script: PASANDO DIRECTO');
+    // Dejar pasar la petición SIN INTERFERIR
     return fetch(event.request)
       .catch(error => {
-        console.log('🌐 Sin conexión para API, mostrando datos locales');
-        // Puedes retornar una respuesta de respaldo aquí si quieres
+        console.error('❌ Error en petición a Google Sheets:', error);
+        // Puedes retornar una respuesta de fallback si quieres
+        return new Response(JSON.stringify({ 
+          status: 'error', 
+          message: 'Sin conexión a Google Sheets' 
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       });
   }
   
-  // Para recursos de la app, servir desde cache si es posible
+  // Para archivos de la APP, usar cache primero
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Si está en cache, devolverlo
+        // 1. Si está en cache, devolverlo
         if (response) {
+          console.log('📂 Sirviendo desde cache:', url);
           return response;
         }
         
-        // Si no está en cache, hacer fetch
+        // 2. Si NO está en cache, hacer fetch online
+        console.log('🌐 Haciendo fetch online:', url);
         return fetch(event.request)
           .then(response => {
-            // Solo cachear si la respuesta es válida
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+            // Solo cachear si es exitoso y es de nuestro dominio
+            if (response && response.status === 200 && 
+                response.type === 'basic' &&
+                url.includes('sebaspreciado99-sys.github.io')) {
+              const responseClone = response.clone();
+              caches.open(CACHE_NAME)
+                .then(cache => {
+                  cache.put(event.request, responseClone);
+                });
             }
-            
-            // Clonar la respuesta para cachear
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME + '-v' + APP_VERSION)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-            
             return response;
           })
           .catch(() => {
-            // Si es una página y falla, devolver la página principal
+            // Si falla y es una página HTML, devolver la offline
             if (event.request.mode === 'navigate') {
               return caches.match('./index.html');
             }
           });
       })
   );
-});
-
-// MENSAJES (para actualizaciones)
-self.addEventListener('message', event => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting();
-  }
 });
