@@ -1,463 +1,875 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  
-  <!-- Título de la app -->
-  <title>📈 TRADING 📉</title>
-  
-  <!-- ==================== META TAGS PWA ==================== -->
-  <!-- Manifiesto PWA -->
-  <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
-  
-  <!-- Color de tema -->
-  <meta name="theme-color" content="#0a0c10">
-  
-  <!-- Descripción -->
-  <meta name="description" content="Sistema profesional de control y seguimiento de operaciones de trading">
-  
-  <!-- Para iOS -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="TRADING">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  
-  <!-- Para Microsoft -->
-  <meta name="msapplication-TileColor" content="#0a0c10">
-  <meta name="msapplication-TileImage" content="icon-144.png">
-  <meta name="msapplication-config" content="browserconfig.xml">
-  
-  <!-- Para navegadores modernos -->
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-  <link rel="shortcut icon" href="icon-192.png">
-  
-  <!-- CSS personalizado -->
-  <link rel="stylesheet" href="styles.css">
-  
-  <!-- ==================== ESTILOS PWA ADICIONALES ==================== -->
-  <style>
-    /* Estilos específicos para PWA instalada */
-    .pwa-mode header {
-      padding-top: env(safe-area-inset-top);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    .pwa-mode #sesionActual {
-      margin-top: env(safe-area-inset-top);
-    }
+    <!-- CONFIGURACIÓN PWA - ESENCIAL -->
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="manifest.json">
     
-    /* Botón de instalación PWA */
-    #installButton {
-      position: fixed;
-      bottom: 80px;
-      right: 20px;
-      background: linear-gradient(135deg, #f0b90b, #f59e0b);
-      color: #0a0c10;
-      border: none;
-      border-radius: 50px;
-      padding: 12px 20px;
-      font-weight: bold;
-      font-size: 14px;
-      box-shadow: 0 4px 15px rgba(240, 185, 11, 0.3);
-      cursor: pointer;
-      z-index: 1000;
-      display: none;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.3s ease;
-    }
+    <!-- Configuración para iOS/Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Control Trading">
+    <link rel="apple-touch-icon" href="icon-192.png">
     
-    #installButton:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(240, 185, 11, 0.4);
-    }
+    <title>Control Trading PWA</title>
     
-    #installButton.show {
-      display: flex;
-      animation: slideUp 0.3s ease;
-    }
-    
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    /* Indicador de app instalada */
-    .pwa-badge {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: #10b981;
-      color: white;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      display: none;
-    }
-    
-    .pwa-mode .pwa-badge {
-      display: block;
-    }
-    
-    /* Ajustes para modo standalone */
-    @media all and (display-mode: standalone) {
-      body {
-        -webkit-tap-highlight-color: transparent;
-      }
-      
-      .card-glass {
-        border-radius: 16px;
-      }
-    }
-  </style>
+    <!-- ESTILOS CSS -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --gray: #6b7280;
+            --border: #e5e7eb;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+            min-height: 100vh;
+        }
+        
+        /* HEADER Y NAVEGACIÓN */
+        .app-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .install-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: none;
+        }
+        
+        .install-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* CONTENEDOR PRINCIPAL */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        /* ESTADÍSTICAS */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .profit { color: var(--success); }
+        .loss { color: var(--danger); }
+        .neutral { color: var(--gray); }
+        
+        /* FORMULARIO */
+        .form-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-title {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: var(--dark);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+        
+        /* TABLA DE OPERACIONES */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.2s;
+        }
+        
+        tbody tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        td {
+            padding: 1rem;
+        }
+        
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .status-open { background-color: #dbeafe; color: var(--primary); }
+        .status-closed { background-color: #dcfce7; color: var(--success); }
+        .status-loss { background-color: #fee2e2; color: var(--danger); }
+        
+        .action-btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        
+        .btn-close { background-color: var(--success); color: white; }
+        .btn-edit { background-color: var(--warning); color: white; }
+        .btn-delete { background-color: var(--danger); color: white; }
+        
+        /* FOOTER */
+        .app-footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--gray);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+            background: white;
+        }
+        
+        /* MENSAJES */
+        .message {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .message.success {
+            background-color: #dcfce7;
+            color: var(--success);
+            border: 1px solid #bbf7d0;
+            display: block;
+        }
+        
+        .message.error {
+            background-color: #fee2e2;
+            color: var(--danger);
+            border: 1px solid #fecaca;
+            display: block;
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .app-title {
+                font-size: 1.2rem;
+            }
+        }
+        
+        /* OFFLINE INDICATOR */
+        .offline-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--danger);
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 30px;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            display: none;
+            z-index: 1000;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
 <body>
-  <!-- ==================== HEADER ==================== -->
-  <header>
-    <div class="header-glow">
-      <h1>📈 TRADING 📉</h1>
-      <div class="pwa-badge">APP</div>
+    <!-- HEADER DE LA APLICACIÓN -->
+    <header class="app-header">
+        <div class="header-content">
+            <h1 class="app-title">📈 Control Trading PWA</h1>
+            <button id="installButton" class="install-btn">⬇️ Instalar App</button>
+        </div>
+    </header>
+    
+    <!-- INDICADOR DE CONEXIÓN -->
+    <div id="offlineIndicator" class="offline-indicator">
+        ⚠️ Sin conexión - Modo offline activado
     </div>
-  </header>
-
-  <!-- ==================== SECCIÓN HOME ==================== -->
-  <section id="home">
-    <div class="card-glass premium">
-      <div class="input-group">
-        <p class="label-input glow">🎯 Activo Financiero</p>
-        <input id="inputPar" list="misPares" placeholder="Ej: BTCUSDT, EURUSD...">
-        <datalist id="misPares"></datalist>
-      </div>
-      
-      <div class="input-group">
-        <p class="label-input glow">🎨 Etiqueta de Color</p>
-        <div id="coloresRapidos"></div>
-        <input type="color" id="colorPar" value="#f0b90b" class="color-picker">
-      </div>
-      
-      <button onclick="guardarPar()" class="btn-main premium">
-        <span>➕</span> Iniciar Registro
-      </button>
-    </div>
-
-    <div id="listaPares"></div>
-  </section>
-
-  <!-- ==================== FORMULARIO DE OPERACIÓN ==================== -->
-  <section id="operaciones" class="oculto">
-    <h2 id="tituloPar" class="titulo-premium"></h2>
     
-    <div class="card-glass premium">
-        <!-- CAMPO ID CON VALIDACIÓN Y BOTÓN DE SUGERIR -->
-        <div class="input-group">
-          <p class="label-input glow">🔢 #ID (Google Sheets)</p>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <input type="number" id="idManualForm" placeholder="Deja vacío para auto-generar" min="1" 
-                   style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1); flex: 1;">
-            <button onclick="document.getElementById('idManualForm').value = sugerirIdDisponible()" 
-                    style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.9rem;">
-              Sugerir ID
-            </button>
-          </div>
-          <small style="color: var(--subtext); font-size: 0.8rem; display: block; margin-top: 5px;">
-            • Deja vacío para auto-generar ID consecutivo<br>
-            • Usa el mismo ID de Google Sheets para actualizar un trade existente<br>
-            • <span style="color: #ef4444;">❌ Rojo</span>: ID ya existe | <span style="color: #10b981;">✅ Verde</span>: ID disponible
-          </small>
-        </div>
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="container">
+        <!-- MENSAJES -->
+        <div id="messageContainer"></div>
         
-        <div id="coloresRapidosEditar" class="color-grid"></div>
-        <input type="color" id="colorAuto" class="color-picker">
+        <!-- ESTADÍSTICAS -->
+        <section class="stats-container">
+            <div class="stat-card">
+                <div class="stat-value profit" id="totalProfit">$0.00</div>
+                <div>Ganancia Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalTrades">0</div>
+                <div>Operaciones Totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value success" id="winRate">0%</div>
+                <div>Tasa de Acierto</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value neutral" id="openTrades">0</div>
+                <div>Operaciones Abiertas</div>
+            </div>
+        </section>
         
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">📅 Fecha</p>
-              <input type="date" id="fecha">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">⏰ Hora</p>
-              <input type="time" id="hora">
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">📈 Tipo</p>
-              <select id="tipo">
-                <option>BUY</option>
-                <option>SELL</option>
-              </select>
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">🔥 Gatillo</p>
-              <select id="gatillo">
-                <option>G3V</option>
-                <option>ENVOLVENTE</option>
-                <option>PINBAR</option>
-              </select>
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">🛑 SL Pips</p>
-              <input type="number" placeholder="SL Pips" id="sl" step="0.01" min="0">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">🎯 TP Pips</p>
-              <input type="number" placeholder="TP Pips" id="tp" step="0.01" min="0">
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="input-group">
-              <p class="label-input glow">RATIO</p>
-              <input placeholder="RATIO" id="ratio" readonly class="input-readonly premium">
-            </div>
-            <div class="input-group">
-              <p class="label-input glow">MAX RATIO</p>
-              <input placeholder="MAX RATIO" id="maxRatio" step="0.01">
-            </div>
-        </div>
+        <!-- FORMULARIO DE OPERACIONES -->
+        <section class="form-container">
+            <h2 class="form-title" id="formTitle">📝 Nueva Operación</h2>
+            <form id="tradeForm">
+                <input type="hidden" id="tradeId">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="asset">Activo/Par</label>
+                        <input type="text" id="asset" placeholder="Ej: BTC/USD, AAPL" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="type">Tipo de Operación</label>
+                        <select id="type" required>
+                            <option value="">Seleccionar</option>
+                            <option value="buy">Compra (Long)</option>
+                            <option value="sell">Venta (Short)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="entryPrice">Precio de Entrada</label>
+                        <input type="number" id="entryPrice" step="0.000001" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="exitPrice">Precio de Salida</label>
+                        <input type="number" id="exitPrice" step="0.000001" placeholder="0.00">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="quantity">Cantidad</label>
+                        <input type="number" id="quantity" step="0.000001" placeholder="0.00" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="status">Estado</label>
+                        <select id="status" required>
+                            <option value="open">Abierta</option>
+                            <option value="closed">Cerrada</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="date">Fecha</label>
+                        <input type="datetime-local" id="date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">Notas</label>
+                        <input type="text" id="notes" placeholder="Observaciones de la operación">
+                    </div>
+                </div>
+                
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">💾 Guardar Operación</button>
+                    <button type="button" class="btn btn-secondary" id="clearBtn">🔄 Limpiar Formulario</button>
+                </div>
+            </form>
+        </section>
         
-        <div class="input-group">
-          <p class="label-input glow">🏆 RESULTADO</p>
-          <input placeholder="WIN / LOSS / BE" id="resultado">
-        </div>
-
-        <div class="input-group">
-          <p class="label-input glow">⏱️ DURACIÓN</p>
-          <input placeholder="Ej: 1D 2H" id="duracion">
-        </div>
-
-        <div class="input-group">
-          <p class="label-input glow">🔗 LINK DIARIO</p>
-          <input type="url" placeholder="URL de captura diaria" id="diario">
-        </div>
-
-        <div class="input-group">
-          <p class="label-input glow">🔗 LINK HORARIO</p>
-          <input type="url" placeholder="URL de captura H1, M15..." id="horario">
-        </div>
-
-        <div class="input-group">
-          <p class="label-input glow">📊 PORCENTAJE %</p>
-          <input placeholder="Ej: 0.5, 1, 2..." id="porcentaje">
-        </div>
-        
-        <div class="grid-2 r-grid">
-            <div class="input-group">
-              <p class="label-input glow">📉 R NEG</p>
-              <input placeholder="R NEG" id="rNegativo" class="input-danger">
+        <!-- TABLA DE OPERACIONES -->
+        <section class="table-container">
+            <h2 style="padding: 1rem; margin: 0; border-bottom: 1px solid var(--border);">
+                📊 Historial de Operaciones
+            </h2>
+            <div style="overflow-x: auto;">
+                <table id="tradesTable">
+                    <thead>
+                        <tr>
+                            <th>Activo</th>
+                            <th>Tipo</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Cantidad</th>
+                            <th>Resultado</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tradesTableBody">
+                        <!-- Las operaciones se cargarán aquí con JavaScript -->
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 3rem; color: var(--gray);">
+                                No hay operaciones registradas. ¡Agrega tu primera operación!
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="input-group">
-              <p class="label-input glow">📈 R POS</p>
-              <input placeholder="R POS" id="rPositivo" class="input-success">
-            </div>
-        </div>
+        </section>
+    </main>
+    
+    <!-- FOOTER -->
+    <footer class="app-footer">
+        <p>Control Trading PWA - Aplicación Web Progresiva para gestión de operaciones</p>
+        <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--gray);">
+            ✅ Funciona offline | ⚡ Rápida | 📱 Instalable
+        </p>
+    </footer>
+    
+    <!-- SCRIPTS DE LA APLICACIÓN -->
+    <script>
+        // DATOS DE LA APLICACIÓN
+        let trades = JSON.parse(localStorage.getItem('tradingTrades')) || [];
+        let editTradeId = null;
+        let deferredPrompt = null;
         
-        <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
-        <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
-    </div>
-  </section>
-
-  <!-- ==================== HISTORIAL ==================== -->
-  <section id="historial" class="oculto">
-    <h2 class="titulo-premium">📁 HISTORIAL</h2>
-    
-    <div class="card-glass premium filter-panel">
-        <input 
-          type="text" 
-          id="filtroNombre" 
-          placeholder="🔍 Buscar por nombre..." 
-          oninput="abrirHistorial()" 
-          class="input-search">
-        <input type="date" id="filtroFecha" onchange="abrirHistorial()">
-        <button onclick="limpiarFiltros()" class="btn-ghost">✨ Limpiar</button>
-    </div>
-
-    <div id="resumenGlobal" class="resumen-premium"></div>
-    <button onclick="eliminarSeleccionados()" class="btn-danger premium">🗑 Borrar Seleccionados</button>
-    <div id="historialContenido"></div>
-    <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
-  </section>
-
-  <!-- ==================== DETALLE ==================== -->
-  <section id="detalle" class="oculto">
-    <h2 id="detalleTitulo" class="titulo-premium"></h2>
-    <div id="detalleContenido"></div>
-    <button onclick="volverHistorial()" class="btn-secondary premium">⬅ Volver</button>
-  </section>
-
-  <!-- ==================== ELEMENTOS ADICIONALES ==================== -->
-  <!-- Sesión actual -->
-  <div id="sesionActual"></div>
-
-  <!-- Botón flotante historial -->
-  <button id="btnHistorial" onclick="abrirHistorial()" class="fab-premium">📁</button>
-
-  <!-- Botón de instalación PWA -->
-  <button id="installButton" class="oculto">
-    <span>📱</span> Instalar App
-  </button>
-
-  <!-- ==================== SCRIPTS ==================== -->
-  <script src="app.js"></script>
-  
-  <script>
-    // ==================== PWA INSTALLATION HANDLER ====================
-    let deferredPrompt;
-    const installButton = document.getElementById('installButton');
-    
-    // Detectar si ya está instalada como PWA
-    function detectPWA() {
-      // Modo standalone (iOS/Android)
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      
-      // Navegadores específicos
-      const isInWebAppiOS = (window.navigator.standalone === true);
-      const isInWebAppChrome = (window.matchMedia('(display-mode: standalone)').matches);
-      
-      if (isStandalone || isInWebAppiOS || isInWebAppChrome) {
-        console.log('📱 App ejecutándose como PWA instalada');
-        document.body.classList.add('pwa-mode');
-        installButton.classList.remove('show');
-        return true;
-      }
-      return false;
-    }
-    
-    // Escuchar evento beforeinstallprompt
-    window.addEventListener('beforeinstallprompt', (e) => {
-      console.log('📱 beforeinstallprompt activado');
-      // Prevenir que Chrome muestre su prompt automático
-      e.preventDefault();
-      // Guardar el evento para usarlo después
-      deferredPrompt = e;
-      
-      // Solo mostrar nuestro botón si NO es PWA ya
-      if (!detectPWA()) {
-        installButton.classList.add('show');
-      }
-    });
-    
-    // Manejar clic en botón de instalación
-    installButton.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      
-      // Mostrar el prompt de instalación
-      deferredPrompt.prompt();
-      
-      // Esperar a que el usuario responda
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`📱 Usuario ${outcome} la instalación`);
-      
-      // Ya no necesitamos el prompt
-      deferredPrompt = null;
-      
-      // Ocultar nuestro botón
-      installButton.classList.remove('show');
-      
-      if (outcome === 'accepted') {
-        console.log('✅ PWA instalada con éxito');
-        mostrarToast('✅ App instalada correctamente', 'exito');
-        document.body.classList.add('pwa-mode');
-      }
-    });
-    
-    // Detectar cuando la app se instala
-    window.addEventListener('appinstalled', (evt) => {
-      console.log('🎉 PWA instalada exitosamente');
-      installButton.classList.remove('show');
-      document.body.classList.add('pwa-mode');
-    });
-    
-    // ==================== SERVICE WORKER REGISTRATION ====================
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(registration => {
-            console.log('✅ Service Worker registrado:', registration.scope);
+        // ELEMENTOS DEL DOM
+        const tradeForm = document.getElementById('tradeForm');
+        const tradesTableBody = document.getElementById('tradesTableBody');
+        const installButton = document.getElementById('installButton');
+        const offlineIndicator = document.getElementById('offlineIndicator');
+        const messageContainer = document.getElementById('messageContainer');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // INICIALIZAR APLICACIÓN
+        document.addEventListener('DOMContentLoaded', function() {
+            initApp();
+            renderTrades();
+            updateStats();
             
-            // Verificar actualizaciones cada 24 horas
-            setInterval(() => {
-              registration.update();
-            }, 24 * 60 * 60 * 1000);
+            // Configurar fecha actual por defecto
+            document.getElementById('date').value = getCurrentDateTime();
             
-            // Escuchar nuevas versiones
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('🔄 Nueva versión disponible');
-                  mostrarToast('🔄 Nueva versión disponible. Recarga la app.', 'exito');
-                }
-              });
-            });
-          })
-          .catch(error => {
-            console.error('❌ Error al registrar Service Worker:', error);
-          });
-      });
-    }
-    
-    // ==================== OFFLINE DETECTION ====================
-    window.addEventListener('online', () => {
-      console.log('🌐 Conectado a internet');
-      mostrarToast('✅ Conectado a internet', 'exito');
-    });
-    
-    window.addEventListener('offline', () => {
-      console.log('📴 Sin conexión a internet');
-      mostrarToast('⚠️ Modo offline activado', 'error');
-    });
-    
-    // Detectar estado inicial
-    if (!navigator.onLine) {
-      console.log('📴 Iniciando en modo offline');
-      mostrarToast('⚠️ Trabajando en modo offline', 'error');
-    }
-    
-    // ==================== INICIALIZAR DETECCIÓN PWA ====================
-    // Esperar un momento para que todo cargue
-    setTimeout(() => {
-      detectPWA();
-      
-      // Si no está instalada y no hay prompt después de 5 seg, mostrar ayuda
-      setTimeout(() => {
-        if (!document.body.classList.contains('pwa-mode') && !installButton.classList.contains('show')) {
-          console.log('💡 Para instalar la app: Menú → "Agregar a pantalla de inicio"');
-        }
-      }, 5000);
-    }, 1000);
-    
-    // ==================== FULLSCREEN SUPPORT ====================
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-          console.log(`❌ Error al activar pantalla completa: ${err.message}`);
+            // Detectar conexión
+            updateOnlineStatus();
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
         });
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
+        
+        // INICIALIZAR PWA
+        function initApp() {
+            // Registrar Service Worker para PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Error al registrar Service Worker:', error);
+                    });
+            }
+            
+            // Detectar evento de instalación
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installButton.style.display = 'block';
+                
+                console.log('📱 PWA lista para instalación');
+            });
+            
+            // Detectar si la app ya está instalada
+            window.addEventListener('appinstalled', () => {
+                console.log('🎉 ¡Aplicación instalada!');
+                installButton.style.display = 'none';
+                showMessage('¡Aplicación instalada con éxito!', 'success');
+            });
         }
-      }
-    }
+        
+        // MANEJAR INSTALACIÓN
+        installButton.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                console.log('Usuario aceptó instalar la PWA');
+            }
+            
+            deferredPrompt = null;
+            installButton.style.display = 'none';
+        });
+        
+        // MANEJAR FORMULARIO
+        tradeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const tradeData = {
+                id: editTradeId || Date.now(),
+                asset: document.getElementById('asset').value.trim().toUpperCase(),
+                type: document.getElementById('type').value,
+                entryPrice: parseFloat(document.getElementById('entryPrice').value),
+                exitPrice: document.getElementById('exitPrice').value ? 
+                           parseFloat(document.getElementById('exitPrice').value) : null,
+                quantity: parseFloat(document.getElementById('quantity').value),
+                status: document.getElementById('status').value,
+                date: document.getElementById('date').value,
+                notes: document.getElementById('notes').value,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Calcular resultado
+            tradeData.result = calculateResult(tradeData);
+            
+            if (editTradeId) {
+                // Editar operación existente
+                const index = trades.findIndex(t => t.id === editTradeId);
+                if (index !== -1) {
+                    trades[index] = tradeData;
+                    showMessage('Operación actualizada correctamente', 'success');
+                }
+            } else {
+                // Nueva operación
+                trades.push(tradeData);
+                showMessage('Operación guardada correctamente', 'success');
+            }
+            
+            // Guardar y actualizar
+            saveTrades();
+            renderTrades();
+            updateStats();
+            resetForm();
+        });
+        
+        // CALCULAR RESULTADO
+        function calculateResult(trade) {
+            if (trade.status !== 'closed' || !trade.exitPrice) return 0;
+            
+            const priceDiff = trade.type === 'buy' ? 
+                trade.exitPrice - trade.entryPrice : 
+                trade.entryPrice - trade.exitPrice;
+            
+            return priceDiff * trade.quantity;
+        }
+        
+        // RENDERIZAR OPERACIONES EN TABLA
+        function renderTrades() {
+            if (trades.length === 0) {
+                tradesTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 3rem; color: var(--gray);">
+                            No hay operaciones registradas. ¡Agrega tu primera operación!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Ordenar por fecha (más recientes primero)
+            const sortedTrades = [...trades].sort((a, b) => 
+                new Date(b.date) - new Date(a.date)
+            );
+            
+            tradesTableBody.innerHTML = sortedTrades.map(trade => `
+                <tr>
+                    <td><strong>${trade.asset}</strong></td>
+                    <td>
+                        <span style="color: ${trade.type === 'buy' ? 'var(--success)' : 'var(--danger)'};">
+                            ${trade.type === 'buy' ? '🟢 Compra' : '🔴 Venta'}
+                        </span>
+                    </td>
+                    <td>$${trade.entryPrice.toFixed(2)}</td>
+                    <td>${trade.exitPrice ? '$' + trade.exitPrice.toFixed(2) : '-'}</td>
+                    <td>${trade.quantity}</td>
+                    <td>
+                        ${trade.result ? 
+                            `<span class="${trade.result >= 0 ? 'profit' : 'loss'}">
+                                ${trade.result >= 0 ? '↗' : '↘'} $${Math.abs(trade.result).toFixed(2)}
+                            </span>` : 
+                            '-'
+                        }
+                    </td>
+                    <td>
+                        <span class="status-badge status-${trade.status}">
+                            ${trade.status === 'open' ? 'Abierta' : 
+                              trade.result >= 0 ? 'Ganada' : 'Perdida'}
+                        </span>
+                    </td>
+                    <td>${formatDate(trade.date)}</td>
+                    <td>
+                        <button class="action-btn btn-close" onclick="closeTrade(${trade.id})">
+                            ${trade.status === 'open' ? 'Cerrar' : 'Reabrir'}
+                        </button>
+                        <button class="action-btn btn-edit" onclick="editTrade(${trade.id})">
+                            Editar
+                        </button>
+                        <button class="action-btn btn-delete" onclick="deleteTrade(${trade.id})">
+                            Eliminar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // ACTUALIZAR ESTADÍSTICAS
+        function updateStats() {
+            const totalTrades = trades.length;
+            const closedTrades = trades.filter(t => t.status === 'closed');
+            const openTrades = trades.filter(t => t.status === 'open');
+            
+            const totalProfit = closedTrades.reduce((sum, trade) => sum + (trade.result || 0), 0);
+            const winningTrades = closedTrades.filter(t => (t.result || 0) > 0).length;
+            const winRate = closedTrades.length > 0 ? 
+                Math.round((winningTrades / closedTrades.length) * 100) : 0;
+            
+            document.getElementById('totalProfit').textContent = 
+                `$${totalProfit.toFixed(2)}`;
+            document.getElementById('totalTrades').textContent = totalTrades;
+            document.getElementById('winRate').textContent = `${winRate}%`;
+            document.getElementById('openTrades').textContent = openTrades.length;
+        }
+        
+        // FUNCIONES DE ACCIÓN
+        window.closeTrade = function(id) {
+            const tradeIndex = trades.findIndex(t => t.id === id);
+            if (tradeIndex === -1) return;
+            
+            const trade = trades[tradeIndex];
+            
+            if (trade.status === 'open') {
+                // Pedir precio de salida para cerrar
+                const exitPrice = prompt(
+                    `Ingresa el precio de salida para ${trade.asset}:`,
+                    trade.entryPrice.toString()
+                );
+                
+                if (exitPrice && !isNaN(parseFloat(exitPrice))) {
+                    trade.exitPrice = parseFloat(exitPrice);
+                    trade.status = 'closed';
+                    trade.result = calculateResult(trade);
+                    showMessage('Operación cerrada correctamente', 'success');
+                } else {
+                    return;
+                }
+            } else {
+                // Reabrir operación
+                trade.status = 'open';
+                trade.exitPrice = null;
+                trade.result = 0;
+                showMessage('Operación reabierta', 'success');
+            }
+            
+            saveTrades();
+            renderTrades();
+            updateStats();
+        };
+        
+        window.editTrade = function(id) {
+            const trade = trades.find(t => t.id === id);
+            if (!trade) return;
+            
+            editTradeId = id;
+            
+            // Llenar formulario
+            document.getElementById('tradeId').value = trade.id;
+            document.getElementById('asset').value = trade.asset;
+            document.getElementById('type').value = trade.type;
+            document.getElementById('entryPrice').value = trade.entryPrice;
+            document.getElementById('exitPrice').value = trade.exitPrice || '';
+            document.getElementById('quantity').value = trade.quantity;
+            document.getElementById('status').value = trade.status;
+            document.getElementById('date').value = trade.date;
+            document.getElementById('notes').value = trade.notes || '';
+            
+            formTitle.textContent = '✏️ Editar Operación';
+            submitBtn.textContent = '💾 Actualizar Operación';
+            
+            // Scroll al formulario
+            document.querySelector('.form-container').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        };
+        
+        window.deleteTrade = function(id) {
+            if (!confirm('¿Estás seguro de eliminar esta operación?')) return;
+            
+            trades = trades.filter(t => t.id !== id);
+            saveTrades();
+            renderTrades();
+            updateStats();
+            showMessage('Operación eliminada', 'success');
+        };
+        
+        // FUNCIONES AUXILIARES
+        function resetForm() {
+            tradeForm.reset();
+            editTradeId = null;
+            formTitle.textContent = '📝 Nueva Operación';
+            submitBtn.textContent = '💾 Guardar Operación';
+            document.getElementById('date').value = getCurrentDateTime();
+        }
+        
+        function saveTrades() {
+            localStorage.setItem('tradingTrades', JSON.stringify(trades));
+            
+            // Sincronizar con Google Sheets si hay conexión
+            if (navigator.onLine) {
+                syncWithGoogleSheets();
+            }
+        }
+        
+        function showMessage(text, type) {
+            messageContainer.innerHTML = `
+                <div class="message ${type}">
+                    ${type === 'success' ? '✅' : '❌'} ${text}
+                </div>
+            `;
+            
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 3000);
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        function getCurrentDateTime() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0, 16);
+        }
+        
+        function updateOnlineStatus() {
+            if (navigator.onLine) {
+                offlineIndicator.style.display = 'none';
+                console.log('✅ Conectado a internet');
+            } else {
+                offlineIndicator.style.display = 'block';
+                console.log('⚠️ Sin conexión - Modo offline');
+            }
+        }
+        
+        // LIMPIAR FORMULARIO
+        document.getElementById('clearBtn').addEventListener('click', resetForm);
+        
+        // SINCRONIZAR CON GOOGLE SHEETS
+        function syncWithGoogleSheets() {
+            // Esta función se conectará con tu Google Script
+            console.log('Sincronizando con Google Sheets...');
+            
+            // Aquí iría el código para conectarse a tu Google Apps Script
+            // fetch('TU_ENLACE_DE_GOOGLE_SCRIPT', {
+            //     method: 'POST',
+            //     body: JSON.stringify(trades)
+            // })
+        }
+        
+        // EXPORTAR DATOS
+        window.exportData = function() {
+            const dataStr = JSON.stringify(trades, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `trading-backup-${new Date().toISOString().slice(0,10)}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        };
+    </script>
     
-    // Añadir listener para tecla F11
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'F11') {
-        e.preventDefault();
-        toggleFullscreen();
-      }
-    });
-  </script>
+    <!-- SCRIPT PARA REGISTRAR SERVICE WORKER -->
+    <script>
+        // Registrar Service Worker para funcionalidad offline
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registrado con éxito:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Error al registrar Service Worker:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
