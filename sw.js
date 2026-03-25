@@ -1,68 +1,84 @@
-const CACHE_NAME = 'trading-app-v6';
-const APP_FILES = [
+// sw.js - Service Worker PRO CORREGIDO
+const CACHE_NAME = 'trading-app-v2';
+
+const urlsToCache = [
   './',
-  './index.html', 
-  './app.js',
-  './styles.css',
+  './index.html',
   './manifest.json',
+  './styles.css',
+  './app.js',
   './icon-192.png',
   './icon-512.png'
 ];
 
 // ===== INSTALAR =====
 self.addEventListener('install', event => {
-  console.log('📦 SW: Instalando y cacheando archivos de la APP');
+  console.log('📦 SW: Instalando...');
+  self.skipWaiting();
+
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_FILES))
-      .then(() => self.skipWaiting())
+      .then(cache => {
+        console.log('📦 SW: Cacheando archivos');
+        return cache.addAll(urlsToCache);
+      })
   );
 });
 
-// ===== ACTIVAR =====  
+// ===== ACTIVAR =====
 self.addEventListener('activate', event => {
-  console.log('🔄 SW: Activando y limpiando cache vieja');
+  console.log('🚀 SW: Activando...');
+
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
-        keys.filter(key => key !== CACHE_NAME)
-            .map(key => caches.delete(key))
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            console.log('🗑 Eliminando cache vieja:', key);
+            return caches.delete(key);
+          }
+        })
       );
-    }).then(() => self.clients.claim())
+    })
   );
+
+  self.clients.claim();
 });
 
-// ===== INTERCEPTAR PETICIONES =====
+// ===== FETCH =====
 self.addEventListener('fetch', event => {
   const url = event.request.url;
-  
-  // 🔥 REGLA CRÍTICA: NO TOCAR peticiones a Google Script
-  // Esto incluye tanto "script.google.com" como "docs.google.com"
-  if (url.includes('script.google.com') || url.includes('docs.google.com')) {
-    console.log('🌐 Petición a Google: PASANDO DIRECTO (sin cache)');
-    return fetch(event.request); // Fetch directo, sin cachear
+
+  // 🔥 NO INTERFERIR con Google Apps Script
+  if (
+    url.includes('script.google.com') ||
+    url.includes('docs.google.com')
+  ) {
+    return;
   }
-  
-  // Para TODO lo demás (archivos de tu app), usar cache
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) {
-          console.log('📂 Sirviendo desde cache:', url);
           return response;
         }
-        
-        console.log('🌐 Haciendo fetch online:', url);
-        return fetch(event.request).then(response => {
-          // Solo cachear archivos de nuestro dominio
-          if (response.ok && url.includes('github.io')) {
-            const clone = response.clone();
+
+        return fetch(event.request)
+          .then(res => {
+            if (!res || res.status !== 200) return res;
+
+            const clone = res.clone();
+
             caches.open(CACHE_NAME).then(cache => {
               cache.put(event.request, clone);
             });
-          }
-          return response;
-        });
+
+            return res;
+          })
+          .catch(() => {
+            return caches.match('./index.html');
+          });
       })
   );
 });
