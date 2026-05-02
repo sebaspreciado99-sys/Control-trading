@@ -1,9 +1,9 @@
 {
   "name": "📈 TRADING 📉",
   "short_name": "TRADING",
-  "description": "Sistema profesional de control y seguimiento de operaciones de trading",
-  "start_url": "/Control-trading/",
-  "scope": "/Control-trading/",
+  "description": "Control de Operaciones de Trading",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#0a0c10",
   "theme_color": "#0a0c10",
@@ -20,15 +20,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    }
-  ],
-  "categories": ["finance", "productivity"],
-  "screenshots": [
-    {
-      "src": "screenshot-mobile.png",
-      "sizes": "720x1280",
-      "type": "image/png",
-      "form_factor": "narrow"
     }
   ]
 }
