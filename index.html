@@ -10,18 +10,52 @@
   <meta name="theme-color" content="#0a0c10">
   <meta name="description" content="Sistema profesional de control y seguimiento de operaciones de trading">
   
-  <!-- iOS Support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TRADING">
   
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
+  
+  <style>
+    /* Mantengo tus estilos PWA */
+    .pwa-mode header {
+      padding-top: env(safe-area-inset-top);
+    }
+    .pwa-mode #sesionActual {
+      margin-top: env(safe-area-inset-top);
+    }
+    
+    #installButton {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      background: linear-gradient(135deg, #f0b90b, #f59e0b);
+      color: #0a0c10;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 4px 15px rgba(240, 185, 11, 0.3);
+      cursor: pointer;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    #installButton.show {
+      display: flex;
+    }
+  </style>
 </head>
 <body>
-
   <!-- ==================== HEADER ==================== -->
   <header>
     <div class="header-glow">
       <h1>📈 TRADING 📉</h1>
+      <div class="pwa-badge">APP</div>
     </div>
   </header>
 
@@ -51,61 +85,178 @@
   <!-- ==================== FORMULARIO DE OPERACIÓN ==================== -->
   <section id="operaciones" class="oculto">
     <h2 id="tituloPar" class="titulo-premium"></h2>
+    
     <div class="card-glass premium">
-      <!-- Aquí va todo tu formulario (lo dejo resumido para que quepa) -->
-      <!-- Puedes pegar tu formulario completo aquí si quieres, por ahora dejo espacio -->
-      <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
-      <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
+        <div class="input-group">
+          <p class="label-input glow">🔢 #ID (Google Sheets)</p>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="number" id="idManualForm" placeholder="Deja vacío para auto-generar" min="1" 
+                   style="font-weight: bold; color: #3b82f6; background: rgba(59, 130, 246, 0.1); flex: 1;">
+            <button onclick="document.getElementById('idManualForm').value = sugerirIdDisponible()" 
+                    style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-size: 0.9rem;">
+              Sugerir ID
+            </button>
+          </div>
+          <small style="color: var(--subtext); font-size: 0.8rem; display: block; margin-top: 5px;">
+            • Deja vacío para auto-generar ID consecutivo<br>
+            • Usa el mismo ID de Google Sheets para actualizar un trade existente<br>
+            • <span style="color: #ef4444;">❌ Rojo</span>: ID ya existe | <span style="color: #10b981;">✅ Verde</span>: ID disponible
+          </small>
+        </div>
+        
+        <div id="coloresRapidosEditar" class="color-grid"></div>
+        <input type="color" id="colorAuto" class="color-picker">
+        
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">📅 Fecha</p>
+              <input type="date" id="fecha">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">⏰ Hora</p>
+              <input type="time" id="hora">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">📈 Tipo</p>
+              <select id="tipo">
+                <option>BUY</option>
+                <option>SELL</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">🔥 Gatillo</p>
+              <select id="gatillo">
+                <option>G3V</option>
+                <option>ENVOLVENTE</option>
+                <option>PINBAR</option>
+              </select>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">🛑 SL Pips</p>
+              <input type="number" placeholder="SL Pips" id="sl" step="0.01" min="0">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">🎯 TP Pips</p>
+              <input type="number" placeholder="TP Pips" id="tp" step="0.01" min="0">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="input-group">
+              <p class="label-input glow">RATIO</p>
+              <input placeholder="RATIO" id="ratio" readonly class="input-readonly premium">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">MAX RATIO</p>
+              <input placeholder="MAX RATIO" id="maxRatio" step="0.01">
+            </div>
+        </div>
+        
+        <div class="input-group">
+          <p class="label-input glow">🏆 RESULTADO</p>
+          <input placeholder="WIN / LOSS / BE" id="resultado">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">⏱️ DURACIÓN</p>
+          <input placeholder="Ej: 1D 2H" id="duracion">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">🔗 LINK DIARIO</p>
+          <input type="url" placeholder="URL de captura diaria" id="diario">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">🔗 LINK HORARIO</p>
+          <input type="url" placeholder="URL de captura H1, M15..." id="horario">
+        </div>
+
+        <div class="input-group">
+          <p class="label-input glow">📊 PORCENTAJE %</p>
+          <input placeholder="Ej: 0.5, 1, 2..." id="porcentaje">
+        </div>
+        
+        <div class="grid-2 r-grid">
+            <div class="input-group">
+              <p class="label-input glow">📉 R NEG</p>
+              <input placeholder="R NEG" id="rNegativo" class="input-danger">
+            </div>
+            <div class="input-group">
+              <p class="label-input glow">📈 R POS</p>
+              <input placeholder="R POS" id="rPositivo" class="input-success">
+            </div>
+        </div>
+        
+        <button onclick="archivarPar()" class="btn-archive premium">📥 Archivar Trade</button>
+        <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
     </div>
   </section>
 
   <!-- ==================== HISTORIAL ==================== -->
   <section id="historial" class="oculto">
     <h2 class="titulo-premium">📁 HISTORIAL</h2>
+    
+    <div class="card-glass premium filter-panel">
+        <input type="text" id="filtroNombre" placeholder="🔍 Buscar por nombre..." oninput="abrirHistorial()" class="input-search">
+        <input type="date" id="filtroFecha" onchange="abrirHistorial()">
+        <button onclick="limpiarFiltros()" class="btn-ghost">✨ Limpiar</button>
+    </div>
+
+    <div id="resumenGlobal" class="resumen-premium"></div>
+    <button onclick="eliminarSeleccionados()" class="btn-danger premium">🗑 Borrar Seleccionados</button>
     <div id="historialContenido"></div>
     <button onclick="volverHome()" class="btn-secondary premium">⬅ Volver</button>
   </section>
 
-  <!-- Botón flotante -->
+  <!-- DETALLE -->
+  <section id="detalle" class="oculto">
+    <h2 id="detalleTitulo" class="titulo-premium"></h2>
+    <div id="detalleContenido"></div>
+    <button onclick="volverHistorial()" class="btn-secondary premium">⬅ Volver</button>
+  </section>
+
+  <div id="sesionActual"></div>
   <button id="btnHistorial" onclick="abrirHistorial()" class="fab-premium">📁</button>
 
-  <!-- Botón instalar -->
-  <button id="installButton" style="display:none; position:fixed; bottom:100px; right:20px; padding:12px 20px; background:#f0b90b; color:black; border:none; border-radius:50px; font-weight:bold;">
-    📱 Instalar App
+  <button id="installButton" class="oculto">
+    <span>📱</span> Instalar App
   </button>
 
   <script src="app.js"></script>
-
-  <!-- === REGISTRO DE SERVICE WORKER (Muy importante) === -->
+  
   <script>
     let deferredPrompt;
     const installButton = document.getElementById('installButton');
 
     // Registrar Service Worker
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
+      window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
-          .then(function(reg) {
-            console.log('Service Worker registrado correctamente');
-          })
-          .catch(function(err) {
-            console.log('Error al registrar Service Worker', err);
-          });
+          .then(reg => console.log('✅ SW registrado'))
+          .catch(err => console.log('❌ Error SW', err));
       });
     }
 
-    // Mostrar botón de instalar
+    // Botón instalar
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      installButton.style.display = 'block';
+      installButton.classList.add('show');
     });
 
-    installButton.addEventListener('click', () => {
+    installButton.addEventListener('click', async () => {
       if (deferredPrompt) {
         deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
         deferredPrompt = null;
-        installButton.style.display = 'none';
+        installButton.classList.remove('show');
       }
     });
   </script>
