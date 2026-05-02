@@ -1,7 +1,7 @@
 {
   "name": "📈 TRADING 📉",
   "short_name": "TRADING",
-  "description": "Control de Operaciones de Trading",
+  "description": "Sistema profesional de control y seguimiento de operaciones de trading",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
@@ -21,5 +21,6 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["finance", "productivity"]
 }
